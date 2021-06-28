@@ -28,7 +28,7 @@ WHILE($int < count($name)){
 		$telegram_text = $name[$int][1]." 현재 ".$price[$int][1]." 사토시" ;
 		//챗 아이디와 메시지 배열에 입력
 		$query_array = array(
-			'chat_id' => '-1001305033363',
+			'chat_id' => '-1001174905540',
 			'text' => $telegram_text,
 		);
 		// 메시지 보낼 URL
