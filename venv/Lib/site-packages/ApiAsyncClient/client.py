@@ -1,0 +1,40 @@
+import asyncio
+import json
+import sys
+from .request import Request
+
+class Client:
+    def __init__(self, host, port, loop=None, chunk_size=1024):
+        self.loop = loop or asyncio.get_event_loop()
+        self.host = host
+        self.port = port
+        self.chunk_size = chunk_size
+
+    @asyncio.coroutine
+    def send(self, method, **kwargs):
+        request = {
+            'method': method,
+            'parameters': kwargs
+        }
+        raw_request = json.dumps(request)
+        reader, writer = yield from asyncio.open_connection(
+            self.host, self.port, loop=self.loop)
+        writer.write(raw_request.encode())
+        yield from writer.drain()
+
+        raw_headers = yield from reader.read(self.chunk_size)
+        print(raw_headers)
+        headers = json.loads(raw_headers.decode())
+        print(headers)
+        writer.write('ok'.encode())
+        yield from writer.drain()
+
+        data = b''
+        while sys.getsizeof(data) < headers.get('Content-Length', 0):
+            data += yield from reader.read(self.chunk_size)
+
+        writer.close()
+        return json.loads(data.decode())
+
+    def __getattr__(self, item):
+        return Request(self, [item])

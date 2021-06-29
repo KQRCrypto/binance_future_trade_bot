@@ -1,10 +1,11 @@
 import ccxt
 import pprint
-import init
+import main
 import pandas as pd
 from datetime import datetime
 import time
 import pymysql
+
 with open("../api.txt")as f:
     lines = f.readlines()
     api_key = lines[0].strip()
@@ -22,11 +23,11 @@ cursor = db.cursor(pymysql.cursors.DictCursor)
 
 def minute_to_mysql(table, start_time, timeframe_limit, day):#iter : 반복일자 수
     for d in range(day):
-        btc_ohlcv = init.binanceObj.fetch_ohlcv("BTC/USDT", timeframe=timeframe_limit[0], since=start_time + timeframe_limit[1] * d, limit=timeframe_limit[2])#1번 반복이 한시간 +3600000 24시간 +86400000
+        btc_ohlcv = main.binanceObj.fetch_ohlcv("BTC/USDT", timeframe=timeframe_limit[0], since=start_time + timeframe_limit[1] * d, limit=timeframe_limit[2])#1번 반복이 한시간 +3600000 24시간 +86400000
         # btc_ohlcv = binanc4e.fetch_ohlcv("BTC/USDT", timeframe='15m', since=start_time+86400000*i, limit=4*24)#1번 반복이 한시간 +3600000 24시간 +86400000
         for i in range(len(btc_ohlcv)):
             stamp = pd.to_datetime(btc_ohlcv[i][0] * 1000000)
-            times = init.timestamp_to_str(stamp)
+            times = main.timestamp_to_str(stamp)
             sql = '''INSERT INTO `{6}` (time, open, high, low, close, volume)
                 VALUES({0}, {1}, {2}, {3}, {4}, {5})'''.format(times, btc_ohlcv[i][1], btc_ohlcv[i][2], btc_ohlcv[i][3],
                                                                btc_ohlcv[i][4], btc_ohlcv[i][5], table)
@@ -76,5 +77,5 @@ update_indicator('btc_minute')
 
 #private api
 #잔고조회
-balance = init.binanceObj.fetch_balance(params={'type': "future"})
+balance = main.binanceObj.fetch_balance(params={'type': "future"})
 print(balance['USDT'])

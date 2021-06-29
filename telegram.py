@@ -1,5 +1,5 @@
 import telegram
-api_key = 1867497311:AAHrvdQv-k2s7RoMmJNkJo875LSxLMnGjog
+api_key = ""
 bot = telegram.Bot(token=api_key)
 
 for item in bot.getUpdates():

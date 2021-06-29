@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: BinanceAsyncWebsocket
+Version: 2.0.1
+Summary: Binance asynchronous websocket SDK
+Home-page: UNKNOWN
+Author: Antas
+Author-email: 
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+
+# BinanceAsyncWebsocket
+
+Binance asynchronous websocket SDK. For now it could watch only some kind of information of user data.
+
+This module is mainly classes inherited from
+module ['AsyncWebsocketStreamInterface'](https://pypi.org/project/AsyncWebsocketStreamInterface/). For the usage detail,
+refer to that module.
+

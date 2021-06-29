@@ -1,0 +1,24 @@
+Metadata-Version: 1.1
+Name: pybinance
+Version: 0.0.1
+Summary: This is a Python wrapper for the Binance REST API
+Home-page: https://github.com/CryptoVader/pyBinance
+Author: CryptoVader
+Author-email: cryptovader@gmail.com
+License: MIT
+Download-URL: https://github.com/CryptoVader/pyBinance/archive/0.0.1.tar.gz
+Description: UNKNOWN
+Keywords: binance exchange bitcoin ethereum litecoin api rest
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

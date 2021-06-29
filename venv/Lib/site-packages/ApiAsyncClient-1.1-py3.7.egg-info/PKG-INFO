@@ -1,0 +1,13 @@
+Metadata-Version: 1.1
+Name: ApiAsyncClient
+Version: 1.1
+Summary: Async client for ApiDaemon-service
+Home-page: https://github.com/tsyganov-ivan/ApiDaemon
+Author: Ivan Tsyganov
+Author-email: tsyganov.ivan@gmail.com
+License: MIT-license
+Description:  Async client for ApiDaemon-service 
+Platform: UNKNOWN
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3.4
