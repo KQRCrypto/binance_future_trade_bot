@@ -1,0 +1,28 @@
+
+futures
+     LIMIT                timeInForce, quantity, price
+     MARKET               quantity
+     STOP/TAKE_PROFIT     quantity, price, stopPrice
+     STOP_MARKET          stopPrice
+     TAKE_PROFIT_MARKET   stopPrice
+     TRAILING_STOP_MARKET callbackRate
+symbol = 'BTC/USDT'
+type = 'limit'
+type = 'market'
+type = 'stop_loss' #market
+type = 'stop_loss_limit'
+type = 'take_profit'
+type = 'take_profit_limit'
+side = 'buy'
+amount = 0.001
+price = 37000
+params = {'stopPrice': 37000}
+binanceObj.create_order(symbol, 'take_profit_limit', 'sell', amount, price, params)
+binanceObj.create_order(symbol, 'STOP_MARKET', 'buy', amount, params= params)
+binanceObj.create_order(symbol, 'STOP', 'buy', amount, 34000, params= params)
+binanceObj.create_order(symbol, 'TAKE_PROFIT', 'buy', amount, 34000, params= params)
+binanceObj.create_order(symbol, 'TAKE_PROFIT', 'buy', amount, 34000, params= params)
+binanceObj.create_order(symbol, 'TAKE_PROFIT', 'SELL', amount, 34000, params= params)
+binanceObj.create_order(symbol, 'limit', 'sell', amount, price, params)
+btc = binanceObj.fetch_ticker("BTC/USDT")
+cur_price = btc['last']

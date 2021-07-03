@@ -38,3 +38,21 @@ INSERT INTO `복사 테이블` (컬럼1 [, 컬럼2 ...]) SELECT 컬럼1 [, 컬�
 #binary log 파일 삭제
 purge binary logs to 'mysql-bin.000038';
 PURGE BINARY LOGS TO 'DESKTOP-TEC9DSH-bin.000105';
+
+
+CREATE TABLE `realtime_btc_minute` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `time` varchar(45) NOT NULL,
+  `open` float NOT NULL,
+  `high` float NOT NULL,
+  `low` float NOT NULL,
+  `close` float NOT NULL,
+  `volume` float NOT NULL,
+  `ranges` float NOT NULL,
+  `MA7` float DEFAULT NULL,
+  `MA25` float DEFAULT NULL,
+  `MA99` float DEFAULT NULL,
+  `upperBB` float DEFAULT NULL,
+  `lowerBB` float DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=275 DEFAULT CHARSET=utf8 COMMENT='			\n'

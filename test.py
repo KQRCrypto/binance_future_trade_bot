@@ -29,31 +29,35 @@ binanceObj = ccxt.binance(config={
                 'defaultType':'future'
             }
         })
-tf_table = [['1m', 'realtime_btc_minute', 1], ['15m', 'realtime_btc_15minute', 15],
+tf_table = [['1m', 'realtime_btc_minute', 1], ['15m', 'realtime_btc_15minute', 15], ['5m', 'realtime_btc_5minute', 5],
              ['1h', 'realtime_btc_hour', 60], ['4h', 'realtime_btc_4hour', 240], ['1d', 'realtime_btc_day', 3600]]#1열은 timeframe, 2열은 테이블 명
 
 
-def target_price(table):  # mysql에 저장되있는 마지막 시간대 불러오기
-    sql = '''SELECT * FROM `{0}` ORDER BY id DESC LIMIT 2'''.format(table)
-    cursor.execute(sql)
-    result = cursor.fetchall()
-    # pprint.pprint(result)
-    range = (result[1]['high'] - result[1]['low'])
-    long_target = result[0]['open'] + range
-    short_target = result[0]['open'] - range
-    return long_target, short_target
-id = 'binance'
+
+symbol = 'BTC/USDT'
+balance = binanceObj.fetch_balance()
+orders = binanceObj.fetch_orders('BTC/USDT')
+orders = binanceObj.fetch_orders(id='24814336293')
+binanceObj.fetch_order_status(24814684730, 'BTC/USDT')
+orders[0]['info']
+orders[1]['info']
+float(balance['info']['positions'][101]['positionAmt']) != 0
+positionAmt = float(balance['info']['positions'][101]['positionAmt'])
+entry_price = balance['info']['positions'][101]['entryPrice']
+pprint.pprint(balance)
+print(balance['USDT'])
+
+buy_order = binanceObj.create_order(symbol, 'STOP', 'buy', 0.001, 33380, params={'stopPrice': 33380})
+buy_order['info']
+'''{'orderId': '24814336293', 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'x-xcKtGhcu448c451d5bf89c304552d', 'price': '33370', 'avgPrice': '0.00000', 'origQty': '0.001', 'executedQty': '0', 'cumQty': '0', 'cumQuote': '0', 'timeInForce': 'GTC', 'type': 'STOP', 'reduceOnly': False, 'closePosition': False, 'side': 'BUY', 'positionSide': 'BOTH', 'stopPrice': '33370', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'STOP', 'updateTime': '1625249151429'}'''
+for i in range(len(balance['info']['positions'])):
+    print(balance['info']['positions'][i]['symbol'], i)
 
 
-def enter_position():
-    binanceObj.create_limit_buy_order('BTC/USDT', 0.001, 35000)
-binanceObj.create_limit_buy_order('BTC/USDT', 0.001, 35000)
-binanceObj.fetch_balance()
-target_price(tf_table[1][1])
-btc = binanceObj.fetch_ticker("BTC/USDT")
-pprint.pprint(btc)
-print(btc['last'])
 
+# sell_order = binanceObj.create_order('BTC/USDT', 'STOP', 'sell', 0.01, 33780, params={'stopPrice':33780})
+# order_id = sell_order['info']['orderId']
+# binanceObj.fetch_order_status(order_id, 'BTC/USDT')
 
 
 #지표 가져오기
@@ -92,13 +96,11 @@ def visualization():
         plt.grid(True)
         plt.ylim([min(df.lowerBB), max(df.upperBB)])
         plt.legend(loc='best')
-# plt.figure(figsize=(10, 10))
-# visualization()
-# plt.show()
+plt.figure(figsize=(10, 10))
+visualization()
+plt.show()
 
 #현재가
-
-
 
 
 if __name__ == "__main__":
