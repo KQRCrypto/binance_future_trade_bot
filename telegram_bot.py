@@ -1,9 +1,12 @@
-import logging
+
+from re import T
+from ccxt.base import precise
 import telegram
+import ccxt
+import pymysql
 
 from telegram import Update
-from telegram.ext import Updater,CommandHandler,CallbackContext
-
+from telegram.ext import Updater,CommandHandler,CallbackContext,MessageHandler
 
 with open("../api.txt")as f:
     lines = f.readlines()
@@ -13,84 +16,107 @@ with open("../api.txt")as f:
     password = lines[3].strip()
     api_code = lines[4].strip()
     id = lines[5].strip()
+db = pymysql.connect(
+    user='root',
+    passwd=password,
+    host='127.0.0.1',
+    db=db,
+    charset='utf8'
+)
+cursor = db.cursor(pymysql.cursors.DictCursor)
+binance = ccxt.binance(config={
+    'apiKey': api_key,
+    'secret' :secret
+})
 
-
+# 정보 입력 
 bot = telegram.Bot(token=api_code)
 updates = bot.getUpdates()
 chat_id = bot.getUpdates()[-1].message.chat.id
-
-for item in updates:
-    print(item)
 
 # updater, dispatcher 
 updater = Updater(token=api_code, use_context=True)
 dispatcher = updater.dispatcher
 
-
 # /start 
 def start(update,context):
     context.bot.send_message(chat_id=update.effective_chat.id, text = 
     "command\n"
-    "/set 100 1 : 100초 간격 1% 변동성 알림\n"
-    "/check : 현재 주기, 변동 퍼센트 확인\n"
-    "/price 11000 : 11000$ 도달시 가격 알림\n"
-    "/remove 11000 : 11000$ 알림 삭제\n"
-    "/order btc b 50000 0.1 : symbol buy/sell 가격 수량\n"
-    "/market btc b 0.1: symbol buy/sell 수량\n"
-    "/ok : agree with placing order\n"
-    "/cancel btc 123456 : cancel open order\n"
-    "/pnl: show pnl\n"
-    "/open btc : show all open orders\n")
+    "/balance s: spot/future 지갑 잔고 조회\n"
+    "/order s b 50000 0.1: spot/future buy/sell 가격 수량\n"
+    "/cancel: cancel latest order"
+    "/price m (or d): 분봉/일봉 조회\n"
+    "/stop: stop chat\n")
+    
 
-# -> 우리 프로젝트에 맞춰서 command 수정 
+# 계좌정보 불러오기 - 현물 지갑 잔고 조회, 선물 지갑 잔고 조회  
+# 차트 불러오기- 현재가 조회
+# 매수 매도 테스트 - 매수 주문, 매도 주문(지정가 주문), 포지션 
 
-"""
-def set(update,context):
-def check(update,context):
-def price(update,context):
-def remove(update,context):
+
+def stop():
+    updater.start_polling()
+
+def balance(update,context):
+    t = update.message.text
+    if t == "s":
+        balance = binance.fetch_balance()
+        context.bot.send_message(chat_id=update.effective_chat.id, text = "spot")
+    elif t =="f":
+        balance = binance.fetch_balance(params={"type":"future"}) #future
+        context.bot.send_message(chat_id=update.effective_chat.id, text = "future")
+    
+
 def order(update,context):
-def market(update,context):
-def ok(update,context):
+    # 잔고 조회 후 가격 미만이면 매수 실패 매도 실패 
+    binance.create_market_buy_order(
+        symbol="",
+        amount="",
+        price=""
+    )
+    context.bot.send_message(chat_id=update.effective_chat.id, text = "매수하였습니다.")
+    binance.create_market_sell_order(
+        symbol="",
+        amount="",
+        price=""
+    )
+    context.bot.send_message(chat_id=update.effective_chat.id, text = "매도하였습니다.")
+
 def cancel(update,context):
-def pnl(update,context):
-def open(update,context): 
-"""
+    order_id = order['info']['orderId']
+    symbol = order['symbol']
+    ret = binance.cancel_order(
+        id = order_id,
+        symbol = symbol
+    )
+    ret 
+    context.bot.send_message(chat_id=update.effective_chat.id, text = "주문을 취소하였습니다.")
+
+def price(update,context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text = "데이터 : ")
 
 
+# handler, dispatcher
 start_handler = CommandHandler('start',start)
-set_handler = CommandHandler('set 100 1',set)
-check_handler = CommandHandler('check',check)
-price_handler = CommandHandler('price 11000',price)
-remove_handler = CommandHandler('remove 11000',remove)
-order_handler = CommandHandler('order btc b 50000 0.1',order)
-market_handler = CommandHandler('market btc b 0.1',market)
-ok_handler = CommandHandler('ok',ok)
-cancel_handler = CommandHandler('cancel btc 123456',cancel)
-pnl_handler = CommandHandler('pnl',pnl)
-open_handler = CommandHandler('open btc',open)
+dispatcher.add_handler(start_handler) # start command를 요청하면 start function 실행
 
-dispatcher.add_handler(start_handler)
-dispatcher.add_handler(set_handler)
-dispatcher.add_handler(check_handler)
-dispatcher.add_handler(price_handler)
-dispatcher.add_handler(remove_handler)
-dispatcher.add_handler(order_handler)
-dispatcher.add_handler(market_handler)
-dispatcher.add_handler(ok_handler)
-dispatcher.add_handler(pnl_handler)
-dispatcher.add_handler(open_handler)
+stop_handler = CommandHandler('stop',stop)
+dispatcher.add_handler(stop_handler) 
 
-updater.start_polling()
+balance_handler = CommandHandler('balance',balance)
+dispatcher.add_handler(balance_handler) 
+
+order_handler = CommandHandler('order',order)
+dispatcher.add_handler(order_handler) 
+
+cancel_handler = CommandHandler('cancel',cancel)
+dispatcher.add_handler(cancel_handler) 
+
+price_handler = CommandHandler('price',price)
+dispatcher.add_handler(price_handler) 
 
 
-"""
-# Enable logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
-)
-logger = logging.getLogger(__name__)
-"""
+updater.start_polling() # 코드가 종료되지 않고 계속 수행
 
 
 
