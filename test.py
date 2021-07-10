@@ -32,10 +32,13 @@ binanceObj = ccxt.binance(config={
 tf_table = [['1m', 'realtime_btc_minute', 1], ['15m', 'realtime_btc_15minute', 15], ['5m', 'realtime_btc_5minute', 5],
              ['1h', 'realtime_btc_hour', 60], ['4h', 'realtime_btc_4hour', 240], ['1d', 'realtime_btc_day', 3600]]#1열은 timeframe, 2열은 테이블 명
 
-
+tf_table.remove(['1m', 'realtime_btc_minute', 1])
 
 symbol = 'BTC/USDT'
 balance = binanceObj.fetch_balance()
+balance['info']['assets'][1]['availableBalance']#사용가능한 USDT잔액
+pprint.pprint()
+
 orders = binanceObj.fetch_orders('BTC/USDT')
 orders = binanceObj.fetch_orders(id='24814336293')
 binanceObj.fetch_order_status(24814684730, 'BTC/USDT')
@@ -46,6 +49,19 @@ positionAmt = float(balance['info']['positions'][101]['positionAmt'])
 entry_price = balance['info']['positions'][101]['entryPrice']
 pprint.pprint(balance)
 print(balance['USDT'])
+li = []
+li.append(binanceObj.create_market_sell_order('BTC/USDT', 0.001))#
+li.append(binanceObj.create_order('BTC/USDT','limit','buy', 0.001, 34000))#지정가 주문
+a = li[0]['info']['orderId']
+binanceObj.fetch_order(a, 'BTC/USDT')['amount']
+binanceObj.fetch_order(a, 'BTC/USDT')['side']
+binanceObj.fetch_order(a, 'BTC/USDT')['info']
+binanceObj.fetch_order_status(a, 'BTC/USDT')
+
+binanceObj.cancel_order(a, 'BTC/USDT')#주문취소
+li.pop()
+li.append({'symbol' : 'BTC/USDT'})
+li.remove({'symbol' : 'BTC/USDT'})
 
 buy_order = binanceObj.create_order(symbol, 'STOP', 'buy', 0.001, 33380, params={'stopPrice': 33380})
 buy_order['info']
@@ -101,10 +117,19 @@ visualization()
 plt.show()
 
 #현재가
-
+a = [10,20,30,40,50, {'a':1}]
+a.index({'a':1})
+for i in a:
+    if i == 30:
+        a.remove(i)
+        a.remove(i+10)
 
 if __name__ == "__main__":
 
     while True:
         # schedule.every(10).seconds.do(is_it_late_data(tf_table))
         schedule.run_pending()
+a=[1]
+for i in a:
+    a.remove(1)
+    print(a)

@@ -1,4 +1,3 @@
-
 futures
      LIMIT                timeInForce, quantity, price
      MARKET               quantity
@@ -26,3 +25,11 @@ binanceObj.create_order(symbol, 'TAKE_PROFIT', 'SELL', amount, 34000, params= pa
 binanceObj.create_order(symbol, 'limit', 'sell', amount, price, params)
 btc = binanceObj.fetch_ticker("BTC/USDT")
 cur_price = btc['last']
+
+전략
+
+algo2_prelow : 전 저점 저항 매수
+#1. 직전 캔들포함 좌측으로 4개까지 screening
+#2. low point 발견
+#3. low point를 마지막으로 좌측으로 4개까지 screening
+#4. low point가 여전히 low point라면 채택. 아니면 3번으로.

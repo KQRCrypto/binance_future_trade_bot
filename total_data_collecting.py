@@ -20,22 +20,61 @@ db = pymysql.connect(
         charset= 'utf8'
 )
 cursor = db.cursor(pymysql.cursors.DictCursor)
+binanceObj = ccxt.binance(config={
+            'apiKey': api_key,
+            'secret': secret,
+            'enableRateLimit' : True,
+            'options':{
+                'defaultType':'future'
+            }
+        })
 
-def minute_to_mysql(table, start_time, timeframe_limit, day):#iter : 반복일자 수
+def timestamp_to_str(time):  # 타임스탬프 문자열로 변환
+    return str(time.year * 100000000 + time.month * 1000000 + time.day * 10000 + time.hour * 100 + time.minute)
+
+
+def day_to_mysql(table, start_time, day):
     for d in range(day):
-        btc_ohlcv = main.binanceObj.fetch_ohlcv("BTC/USDT", timeframe=timeframe_limit[0], since=start_time + timeframe_limit[1] * d, limit=timeframe_limit[2])#1번 반복이 한시간 +3600000 24시간 +86400000
-        # btc_ohlcv = binanc4e.fetch_ohlcv("BTC/USDT", timeframe='15m', since=start_time+86400000*i, limit=4*24)#1번 반복이 한시간 +3600000 24시간 +86400000
+        btc_ohlcv = binanceObj.fetch_ohlcv("BTC/USDT", timeframe='1d', since=start_time+86400000*100*d, limit=100)#1번 반복이 한시간 +3600000 24시간 +86400000
         for i in range(len(btc_ohlcv)):
             stamp = pd.to_datetime(btc_ohlcv[i][0] * 1000000)
-            times = main.timestamp_to_str(stamp)
-            sql = '''INSERT INTO `{6}` (time, open, high, low, close, volume)
-                VALUES({0}, {1}, {2}, {3}, {4}, {5})'''.format(times, btc_ohlcv[i][1], btc_ohlcv[i][2], btc_ohlcv[i][3],
-                                                               btc_ohlcv[i][4], btc_ohlcv[i][5], table)
+            times = timestamp_to_str(stamp)
+            ranges = float((btc_ohlcv[i][2] - btc_ohlcv[i][3])).__round__(2)
+            sql = '''INSERT INTO `{7}` (time, open, high, low, close, volume, ranges)
+                VALUES({0}, {1}, {2}, {3}, {4}, {5}, {6})'''.format(times, btc_ohlcv[i][1], btc_ohlcv[i][2], btc_ohlcv[i][3],
+                                                               btc_ohlcv[i][4], btc_ohlcv[i][5], ranges,table)
             cursor.execute(sql)
         db.commit()
         print(d)
         time.sleep(0.1)
-
+def hour_to_mysql(table, start_time, day):
+    for d in range(day):
+        btc_ohlcv = binanceObj.fetch_ohlcv("BTC/USDT", timeframe='1h', since=start_time+14400000*500*d, limit=500)#1번 반복이 한시간 +3600000 24시간 +86400000
+        for i in range(len(btc_ohlcv)):
+            stamp = pd.to_datetime(btc_ohlcv[i][0] * 1000000)
+            times = timestamp_to_str(stamp)
+            ranges = float((btc_ohlcv[i][2] - btc_ohlcv[i][3])).__round__(2)
+            sql = '''INSERT INTO `{7}` (time, open, high, low, close, volume, ranges)
+                VALUES({0}, {1}, {2}, {3}, {4}, {5}, {6})'''.format(times, btc_ohlcv[i][1], btc_ohlcv[i][2], btc_ohlcv[i][3],
+                                                               btc_ohlcv[i][4], btc_ohlcv[i][5], ranges,table)
+            cursor.execute(sql)
+        db.commit()
+        print(d)
+        time.sleep(0.1)
+def minute_to_mysql(table, start_time, day):
+    for d in range(day):
+        btc_ohlcv = binanceObj.fetch_ohlcv("BTC/USDT", timeframe='1h', since=start_time+900000*500*d, limit=500)#1번 반복이 한시간 +3600000 24시간 +86400000
+        for i in range(len(btc_ohlcv)):
+            stamp = pd.to_datetime(btc_ohlcv[i][0] * 1000000)
+            times = timestamp_to_str(stamp)
+            ranges = float((btc_ohlcv[i][2] - btc_ohlcv[i][3])).__round__(2)
+            sql = '''INSERT INTO `{7}` (time, open, high, low, close, volume, ranges)
+                VALUES({0}, {1}, {2}, {3}, {4}, {5}, {6})'''.format(times, btc_ohlcv[i][1], btc_ohlcv[i][2], btc_ohlcv[i][3],
+                                                               btc_ohlcv[i][4], btc_ohlcv[i][5], ranges,table)
+            cursor.execute(sql)
+        db.commit()
+        print(d)
+        time.sleep(0.1)
 def load_last_time(table):#mysql에 저장되있는 마지막 시간대 불러오기
     sql = '''SELECT * FROM `{0}` ORDER BY id DESC LIMIT 1'''.format(table)
     cursor.execute(sql)
@@ -45,15 +84,16 @@ def load_last_time(table):#mysql에 저장되있는 마지막 시간대 불러�
 load_last_time('btc_minute')
 law = load_last_time('btc_minute')[1]
 t = law[0:4]+'-'+law[4:6]+'-'+law[6:8]+' '+str(int(law[8:10]))+':'+law[10:12]+':'+law[12:14]+'00'#원형 :'2021-01-01 09:00:00'. 시간은 UTC기준이므로 +9시간
-t = '2021-01-01 09:00:00'
+t = '2019-09-09 09:00:00'
 start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)#처음 데이터 가져올 때
 start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)+60000 - 32400000#1분 차이 나면 +60000  9시간차이(UTC기준이므로)-32400000
 start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)+900000 - 32400000#15분 차이나면 +900000 9시간차이-32400000
-day = 1
-#1분, 한시간단위로 req이므로 1분 timestamp(60000)*60, ,하루 반복이면 *24
-timeframe_limit = [['1m', 3600000, 60, 24], ['15m', 3600000*24, 4*24, 1]]#1열은 timeframe, 2열은 한 번 반복시 한시간이면 3600000 3열은 api에서 한 번에 가져오는 행 수
-minute_to_mysql('btc_minute',start_time, timeframe_limit[0],day*timeframe_limit[0][3])
-
+day = 10
+hour = 1000# 1000*500임
+minute = 5000
+day_to_mysql('btc_day', start_time, day)
+hour_to_mysql('btc_4hour', start_time, hour)
+minute_to_mysql('btc_15minute', start_time, minute)
 def update_indicator(table):#OHLCV기반으로 지표 생성 후 DB 테이블 업데이트
     sql = '''SELECT * FROM {0}'''.format(table)
     cursor.execute(sql)
@@ -65,17 +105,17 @@ def update_indicator(table):#OHLCV기반으로 지표 생성 후 DB 테이블 �
     df['stddev'] = df['close'].rolling(window=25, min_periods=1).std()
     df['upperBB'] = df['MA25'] + df['stddev'] * 2
     df['lowerBB'] = df['MA25'] - df['stddev'] * 2
-    for i in range(len(df)):
-        sql = '''UPDATE {0} SET MA7 = {2}, MA25 = {3}, MA99 = {4}, upperBB = {5}, lowerBB={6}, WHERE id ={1}'''\
-            .format(table, df.loc[i]['id'], df.loc[i]['MA7'], df.loc[i]['MA25'], df.loc[i]['MA99'],  df.loc[i]['upperBB'],  df.loc[i]['lowerBB'])
+    for i in range(1,len(df)):
+        sql = '''UPDATE {0} SET MA7 = {2}, MA25 = {3}, MA99 = {4}, upperBB = {5}, lowerBB={6} WHERE id ={1}'''\
+            .format(table, df.loc[i]['id'], df.loc[i]['MA7'], df.loc[i]['MA25'], df.loc[i]['MA99'], df.loc[i]['upperBB'], df.loc[i]['lowerBB'])
         cursor.execute(sql)
     db.commit()
 
-update_indicator('btc_minute')
+update_indicator('btc_15minute')
 
+sql = '''SELECT * FROM `btc_15minute`'''
+cursor.execute(sql)
+result = cursor.fetchall()
+df = pd.DataFrame(result)
+df.to_csv("./btc_15minute.csv")
 
-
-#private api
-#잔고조회
-balance = main.binanceObj.fetch_balance(params={'type': "future"})
-print(balance['USDT'])

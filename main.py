@@ -34,9 +34,9 @@ class Binance:
         self.tf_table = [['1m', 'realtime_btc_minute', 1], ['5m', 'realtime_btc_5minute', 5], ['15m', 'realtime_btc_15minute', 15],
                     ['1h', 'realtime_btc_hour', 60], ['4h', 'realtime_btc_4hour', 240], ['1d', 'realtime_btc_day', 3600]]  # 1열은 timeframe, 2열은 테이블 명
         self.order_list = []
+        self.stand_by_orders = []
     def timestamp_to_str(self, time): # 타임스탬프 문자열로 변환
         return str(time.year*100000000 + time.month*1000000 + time.day*10000 + time.hour*100 + time.minute)
-
     def clear_realtime_table(self):
         for tf in self.tf_table:#realtime 전체 테이블 삭제
             sql = '''TRUNCATE `{0}`'''.format(tf[1])
@@ -45,8 +45,7 @@ class Binance:
         print("전체 realtime_table 초기화 완료")
         print("================================================================================")
     def minute_to_mysql(self, table, timeframe):
-        btc_ohlcv = self.binanceObj.fetch_ohlcv("BTC/USDT", timeframe=timeframe,
-                                                limit=100)  # 1번 반복이 한시간 +3600000 24시간 +86400000
+        btc_ohlcv = self.binanceObj.fetch_ohlcv("BTC/USDT", timeframe=timeframe, limit=100)  # 1번 반복이 한시간 +3600000 24시간 +86400000
         for i in range(len(btc_ohlcv)-1):
             stamp = pd.to_datetime(btc_ohlcv[i][0] * 1000000)
             times = self.timestamp_to_str(stamp)  # MySQL에는 UTC시간으로 저장
@@ -78,7 +77,6 @@ class Binance:
         db.commit()
         print(table + ": 완료")
 
-
     def load_last_time(self, table):#mysql에 저장되있는 마지막 시간대 불러오기
         sql = '''SELECT * FROM `{0}` ORDER BY id DESC LIMIT 1'''.format(table)
         cursor.execute(sql)
@@ -106,59 +104,59 @@ class Binance:
         db.commit()
         print(table + ": 지표 업데이트 완료")
 
-    def algo1_larry(self, table):  # mysql에 저장되있는 마지막 시간대 불러오기
-        sql = '''SELECT * FROM `{0}` ORDER BY id DESC LIMIT 1'''.format(table)
-        cursor.execute(sql)
-        result = cursor.fetchall()
-        long_target = result[0]['close'] + result[0]['ranges']
-        short_target = result[0]['close'] - result[0]['ranges']
-        print("long target: "+str(long_target)+",  short target: "+str(short_target))
-        self.enter_position(long_target, short_target)
-        # return long_target, short_target
-
-    def enter_position(self, long_target, short_target):  # 15분에 한번씩 실행 -> 15분봉 업데이트 될 때 실행
+    def normal_enter_position(self,buy_limit, sell_limit, stop_market,algo):  # 15분에 한번씩 실행 -> 15분봉 업데이트 될 때 실행
         symbol = 'BTC/USDT'
+        balance = self.binanceObj.fetch_balance()
+        availableBalance = balance['info']['assets'][1]['availableBalance']
         amount = 0.005
-        buy_order = self.binanceObj.create_order(symbol, 'STOP', 'buy', amount, long_target*0.999,
-                                            params={'stopPrice': long_target})
-        sell_order = self.binanceObj.create_order(symbol, 'STOP', 'sell', amount, short_target*1.001,
-                                             params={'stopPrice': short_target})
-        stop_loss_long = self.binanceObj.create_order(symbol, 'STOP_MARKET', 'sell', amount,
-                                                 params={'stopPrice': long_target*0.99})
-        stop_loss_short = self.binanceObj.create_order(symbol, 'STOP_MARKET', 'buy', amount,
-                                                      params={'stopPrice': short_target * 1.01})
+        #지정가 매수, 스탑로스 주문
+        buy_order = self.binanceObj.create_order(symbol, 'limit', 'buy', amount, buy_limit)
+        stop_order = self.binanceObj.create_order(symbol, 'STOP_MARKET', 'sell', amount, params={'stopPrice': stop_market})
         print("주문 완료")
-        # return buy_order, sell_order, stop_loss_long, stop_loss_short
+        buy_order['algo'] = algo
+        buy_order['algo_side'] = 'buy'
+        stop_order['algo'] = algo
+        stop_order['algo_side'] = 'stop_market'
+        self.stand_by_orders.append([{'algo':algo, 'price':sell_limit, 'amount':amount}])
+        self.order_list.append(stop_order) # stop_market먼저 order_list에 추가
+        self.order_list.append(buy_order)
 
-    def check_orders(self):
-        balance = self.binanceObj.fetch_balance()
-        if float(balance['info']['positions'][101]['positionAmt']) == 0:
-            print("현재 포지션 없음")
-            return
-        self.binanceObj.cancel_all_orders('BTC/USDT') #모든 주문 취소
-        symbol = 'BTC/USDT'
-        positionAmt = float(balance['info']['positions'][101]['positionAmt'])
-        entry_price = float(balance['info']['positions'][101]['entryPrice'])
-        if float(balance['info']['positions'][101]['positionAmt']) > 0: #롱 포지션일 때
-            loss_cut = 0.99*(entry_price)
-            stop_loss = self.binanceObj.create_order(symbol, 'STOP_MARKET', 'sell', abs(positionAmt), params={'stopPrice': loss_cut})
-        else:#숏 포지션일 때
-            loss_cut = 1.01*(entry_price)
-            stop_loss = self.binanceObj.create_order(symbol, 'STOP_MARKET', 'buy', abs(positionAmt), params={'stopPrice': loss_cut})
+    def check_buy_orders(self):
+        for order in self.order_list:
+            status = self.binanceObj.fetch_order_status(order['info']['orderId'], 'BTC/USDT')
+            side = order['algo_side']
+            algo = order['algo']#같은 전략
+            print(algo, status, side)
+            if status == 'closed' and side == 'stop_market':#시나리오1(드문 상황) 지정가 매수 후 급락 ->stop_market 까지 체결. 손절로 마무리.
+                for o in self.order_list:
+                    if algo == o['algo']: #order_list에서 stop_market제거 후 다음 인덱스인 buy도 제거
+                        index = self.order_list.index(o)
+                        self.order_list.remove(o)
+                        self.order_list.pop(index)
+            if status == 'closed' and side == 'buy':#시나리오2(일반적인 상황) 지정가 매수 까지 체결 -> 지정가 매수 제거 후 지정가 매도 주문
+                print(111)
+                for o in self.order_list:
+                    if algo == o['algo']:
+                        print(112)
+                        self.order_list.remove(o)
+                        print(113)
+                for s in self.stand_by_orders:
+                    print(s['algo'])
+                    print(type())
+                    if algo == s['algo']:
+                        print(114)
+                        sell_order = self.binanceObj.create_order('BTC/USDT', 'limit', 'sell', s['amount'], s['price'])
+                        sell_order['algo'] = algo
+                        sell_order['algo_side'] = 'sell'
+                        self.order_list.append(sell_order)
+                        self.stand_by_orders.remove(s)
+            if status == 'closed' and side =='sell':#지정가 매수 후 지정가 매도까지 체결 -> 지정가 주문
+                for o in self.order_list:
+                    if algo == o['algo'] and o['algo_side'] == 'stop_market':#stop_market이 미체결인 경우
+                        self.binanceObj.cancel_order(o['info']['orderId'], 'BTC/USDT')#주문 취소
+                        self.order_list.remove(o)#stop_market 리스트에서 제거
+                self.order_list.remove(order)#지정가 매도주문도 리스트에서 제거
 
-    def exit_position(self):
-        balance = self.binanceObj.fetch_balance()
-        self.binanceObj.cancel_all_orders('BTC/USDT')
-        position = float(balance['info']['positions'][101]['positionAmt'])
-        if position > 0:
-            self.binanceObj.create_market_sell_order('BTC/USDT', abs(position))
-            print("포지션 반대매매 완료")
-        elif position < 0:
-            self.binanceObj.create_market_buy_order('BTC/USDT', abs(position))
-            print("포지션 반대매매 완료")
-        else:
-            print("보유중이던 포지션이 없습니다.")
-        self.algo1_larry(self.tf_table[1][1])
 
     def is_it_late_data(self, tf_table):
         for tf in tf_table:
@@ -189,14 +187,9 @@ class Binance:
                 cursor.execute(sql)
                 db.commit()
                 self.update_indicator(tf[1], diff)
-                if tf[2] == 15: #5분봉 업데이트 시 변동성 돌파전략
-                    print("check")
-                    self.exit_position()
 
         print("현재시각: "+str(datetime.now()))
         print("================================================================================")
-
-
 
     def main(self):
         self.clear_realtime_table()
@@ -205,8 +198,43 @@ class Binance:
         for tf in self.tf_table:  # 최근 시간 지표 셋팅
             self.setting_indicator(tf[1])
         print("================================================================================")
+        stObj = Stretegy()
+        stObj.algo2_prelow('realtime_btc_minute')
         schedule.every().minutes.at(":10").do(self.is_it_late_data, tf_table = self.tf_table)
-        # schedule.every(10).seconds.do(self.check_orders)
+        schedule.every(10).seconds.do(self.check_buy_orders)
+
+class Stretegy(Binance):
+    def __init__(self):
+        super().__init__()
+
+    def screening(self, table, id, count):
+        sql = '''SELECT *FROM `{0}` WHERE low = (SELECT MIN(low)FROM `{0}` WHERE id>{1}-4 and id<{1});'''.format(
+            table, id)
+        cursor.execute(sql)
+        result = cursor.fetchall()
+        if id - 1 == result[0]['id']:  # 최 우측이 low이면
+            if count == 0:  # 첫 번째 스크리닝 이면 전 캔들부터 시작
+                print(id)
+                return self.screening(table, id - 1, count + 1)
+            else:  # low 채택
+                print(id)
+                print(result[0]['low'], count)
+                return result[0]['low']
+        else:
+            print(id)
+            return self.screening(table, result[0]['id'] + 1, count + 1)
+
+    def algo2_prelow(self, table):  # 직전 저점 제외, 최소 3캔들 이전
+        count = 0
+        sql = '''SELECT * FROM `{0}` ORDER BY id DESC LIMIT 1'''.format(table)
+        cursor.execute(sql)
+        result = cursor.fetchall()
+        buy_limit = self.screening(table, result[0]['id'], count)
+        sell_limit = float(buy_limit) * 1.005  # 0.5% 단타
+        stop_market = float(buy_limit) * 0.995  # 0.5% 손절
+        print("지정가 매수: " + str(buy_limit) + ",  익절가: " + str(sell_limit) + ",  손절가: " + str(stop_market))
+        self.normal_enter_position(buy_limit, sell_limit, stop_market, 'algo2_prelow')
+
 
         # btc_ohlcv = self.binanceObj.fetch_ohlcv("BTC/USDT", timeframe='1m', limit=2)
         # print(btc_ohlcv)
