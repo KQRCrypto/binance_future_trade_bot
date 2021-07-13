@@ -75,25 +75,6 @@ def minute_to_mysql(table, start_time, day):
         db.commit()
         print(d)
         time.sleep(0.1)
-def load_last_time(table):#mysql에 저장되있는 마지막 시간대 불러오기
-    sql = '''SELECT * FROM `{0}` ORDER BY id DESC LIMIT 1'''.format(table)
-    cursor.execute(sql)
-    result = cursor.fetchall()
-    return result[0]['id'], result[0]['time']
-
-load_last_time('btc_minute')
-law = load_last_time('btc_minute')[1]
-t = law[0:4]+'-'+law[4:6]+'-'+law[6:8]+' '+str(int(law[8:10]))+':'+law[10:12]+':'+law[12:14]+'00'#원형 :'2021-01-01 09:00:00'. 시간은 UTC기준이므로 +9시간
-t = '2019-09-09 09:00:00'
-start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)#처음 데이터 가져올 때
-start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)+60000 - 32400000#1분 차이 나면 +60000  9시간차이(UTC기준이므로)-32400000
-start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)+900000 - 32400000#15분 차이나면 +900000 9시간차이-32400000
-day = 10
-hour = 1000# 1000*500임
-minute = 5000
-day_to_mysql('btc_day', start_time, day)
-hour_to_mysql('btc_4hour', start_time, hour)
-minute_to_mysql('btc_15minute', start_time, minute)
 def update_indicator(table):#OHLCV기반으로 지표 생성 후 DB 테이블 업데이트
     sql = '''SELECT * FROM {0}'''.format(table)
     cursor.execute(sql)
@@ -111,6 +92,19 @@ def update_indicator(table):#OHLCV기반으로 지표 생성 후 DB 테이블 �
         cursor.execute(sql)
     db.commit()
 
+# load_last_time('btc_minute')
+# law = load_last_time('btc_minute')[1]
+# t = law[0:4]+'-'+law[4:6]+'-'+law[6:8]+' '+str(int(law[8:10]))+':'+law[10:12]+':'+law[12:14]+'00'#원형 :'2021-01-01 09:00:00'. 시간은 UTC기준이므로 +9시간
+t = '2019-09-09 09:00:00'
+start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)#처음 데이터 가져올 때
+# start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)+60000 - 32400000#1분 차이 나면 +60000  9시간차이(UTC기준이므로)-32400000
+# start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)+900000 - 32400000#15분 차이나면 +900000 9시간차이-32400000
+day = 10
+hour = 1000# 1000*500임
+minute = 5000
+day_to_mysql('btc_day', start_time, day)
+hour_to_mysql('btc_4hour', start_time, hour)
+minute_to_mysql('btc_15minute', start_time, minute)
 update_indicator('btc_15minute')
 
 sql = '''SELECT * FROM `btc_15minute`'''

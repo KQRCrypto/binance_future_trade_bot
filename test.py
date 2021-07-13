@@ -116,20 +116,3 @@ plt.figure(figsize=(10, 10))
 visualization()
 plt.show()
 
-#현재가
-a = [10,20,30,40,50, {'a':1}]
-a.index({'a':1})
-for i in a:
-    if i == 30:
-        a.remove(i)
-        a.remove(i+10)
-
-if __name__ == "__main__":
-
-    while True:
-        # schedule.every(10).seconds.do(is_it_late_data(tf_table))
-        schedule.run_pending()
-a=[1]
-for i in a:
-    a.remove(1)
-    print(a)
