@@ -116,3 +116,7 @@ plt.figure(figsize=(10, 10))
 visualization()
 plt.show()
 
+a = 10
+if a>3:
+    b=1
+print(b)
