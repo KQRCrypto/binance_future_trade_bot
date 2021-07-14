@@ -5,6 +5,7 @@ import ccxt
 import pymysql
 import schedule
 from Setting import Setting
+import telegram_bot
 
 with open("../api.txt")as f:
     lines = f.readlines()
@@ -65,7 +66,7 @@ class Binance(Setting):
         self.order_list.append(enter_order)
 
 
-    def check_orders(self):
+    def check_orders(self,update,context):
         print("===============================CHECK ORDERS=====================================")
         for order in self.order_list:
             status = self.binanceObj.fetch_order_status(order['info']['orderId'], order['ticker'])
@@ -76,6 +77,7 @@ class Binance(Setting):
             if status == 'closed' and side == 'stop_market':#시나리오1(드문 상황) 지정가 매수 후 급락 ->stop_market 까지 체결. 손절로 마무리.
                 ###############
                 #손절 주문 체결##
+                context.bot.send_message(chat_id=update.effective_chat.id, text = "손절 주문이 체결되었습니다.")
                 ###############
                 for o in self.order_list:
                     if algo == o['algo']: #order_list에서 stop_market제거 후 다음 인덱스인 enter도 제거
@@ -85,6 +87,7 @@ class Binance(Setting):
             if status == 'closed' and side == 'enter':#시나리오2(일반적인 상황) 지정가 매수 까지 체결 -> 지정가 매수 제거 후 지정가 매도 주문
                 ###############
                 #진입 주문 체결##
+                context.bot.send_message(chat_id=update.effective_chat.id, text = "진입 주문이 체결되었습니다.")
                 ###############
                 index_num = 0
                 for o in self.order_list:
@@ -107,6 +110,7 @@ class Binance(Setting):
                 for o in self.order_list:
                     ###############
                     # 익절 주문 체결##
+                    context.bot.send_message(chat_id=update.effective_chat.id, text = "익절 주문이 체결되었습니다.")
                     ###############
                     if algo == o['algo'] and o['algo_side'] == 'stop_market':#stop_market이 미체결인 경우
                         self.binanceObj.cancel_order(o['info']['orderId'], o['ticker'])#주문 취소
