@@ -5,13 +5,6 @@ futures
      STOP_MARKET          stopPrice
      TAKE_PROFIT_MARKET   stopPrice
      TRAILING_STOP_MARKET callbackRate
-symbol = 'BTC/USDT'
-type = 'limit'
-type = 'market'
-type = 'stop_loss' #market
-type = 'stop_loss_limit'
-type = 'take_profit'
-type = 'take_profit_limit'
 side = 'buy'
 amount = 0.001
 price = 37000
@@ -28,8 +21,13 @@ cur_price = btc['last']
 
 전략
 
-algo2_prelow : 전 저점 저항 매수
-#1. 직전 캔들포함 좌측으로 4개까지 screening
+algo2_pre_low : 전 저점 저항 매수
+#1. 직전 캔들포함 좌측으로 10개까지 screening
 #2. low point 발견
-#3. low point를 기준으로 좌측으로 4개까지 screening
+#3. low point를 기준으로 좌측으로 5개까지 screening
 #4. low point가 여전히 low point라면 채택. 아니면 3번으로.
+algo3_pre_high : algo2와 동일
+algo4_bollinger: 볼린저밴드
+#1. 최근 볼린저 밴드 터치 서치
+#2. 반대 포지션으로 볼린저 밴드 가격에 주문 대기
+#3. Issue : 볼린저 밴드 가격은 봉이 생성될때 마다 바뀜. -> 봉 생성시 마다 주문 취소 & 재 주문
