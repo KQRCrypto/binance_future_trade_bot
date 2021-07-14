@@ -74,12 +74,18 @@ class Binance(Setting):
             ticker = order['ticker']
             print(algo, ticker, side, status)
             if status == 'closed' and side == 'stop_market':#시나리오1(드문 상황) 지정가 매수 후 급락 ->stop_market 까지 체결. 손절로 마무리.
+                ###############
+                #손절 주문 체결##
+                ###############
                 for o in self.order_list:
                     if algo == o['algo']: #order_list에서 stop_market제거 후 다음 인덱스인 enter도 제거
                         index = self.order_list.index(o)
                         self.order_list.remove(o)
                         self.order_list.pop(index)
             if status == 'closed' and side == 'enter':#시나리오2(일반적인 상황) 지정가 매수 까지 체결 -> 지정가 매수 제거 후 지정가 매도 주문
+                ###############
+                #진입 주문 체결##
+                ###############
                 index_num = 0
                 for o in self.order_list:
                     stat = self.binanceObj.fetch_order_status(o['info']['orderId'], o['ticker'])
@@ -99,6 +105,9 @@ class Binance(Setting):
                         self.stand_by_orders.remove(s)
             if status == 'closed' and side =='exit':#지정가 매수 후 지정가 매도까지 체결 -> 지정가 주문
                 for o in self.order_list:
+                    ###############
+                    # 익절 주문 체결##
+                    ###############
                     if algo == o['algo'] and o['algo_side'] == 'stop_market':#stop_market이 미체결인 경우
                         self.binanceObj.cancel_order(o['info']['orderId'], o['ticker'])#주문 취소
                         self.order_list.remove(o)#stop_market 리스트에서 제거
