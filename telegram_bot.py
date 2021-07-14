@@ -9,6 +9,8 @@ import pprint
 from telegram import Update
 from telegram.ext import Updater,CommandHandler,CallbackContext,MessageHandler
 
+# +미체결 주문 취소, 현재가 조회, 
+
 with open("../api.txt")as f:
     lines = f.readlines()
     api_key = lines[0].strip()
@@ -59,10 +61,10 @@ def start(update,context):
     context.bot.send_message(chat_id=update.effective_chat.id, text = 
     "command\n"
     "/balance s: spot/future 지갑 잔고 조회\n"
-    "/market BTC: 마켓에서 BTC 코드 조회\n" #주문 넣을 때 마켓코드이용
+    "/market s BTC: spot/future 마켓에서 BTC 코드 조회\n" #주문 넣을 때 마켓코드이용
     "/order BTC/USDT s b 50000 0.1: symbol spot/future buy/sell price num\n"
-    "/cancel: cancel latest order"
-    "/price m (or d): 분봉/일봉 조회\n"
+    "/cancel: cancel latest order\n"
+    "/price s BTC/USDT: spot/future BTC/USDT 현재가 조회\n"
     "/stop: stop chat\n")
     
 
@@ -90,10 +92,16 @@ def balance(update,context):
 
 def market(update,context):
     t = update.message.text
-    markets = binance.load_markets()
-    for market in markets.keys():
-        if market.startswith(t.split()[1]):
-            context.bot.send_message(chat_id=update.effective_chat.id, text=str(market))
+    if t.split()[1] =='s':
+        markets = binance.load_markets()
+        for market in markets.keys():
+            if market.startswith(t.split()[2]):
+                context.bot.send_message(chat_id=update.effective_chat.id, text=str(market))
+    elif t.split()[2] =='f':
+        markets = binance_f.load_markets()
+        for market in markets.keys():
+            if market.startswith(t.split()[2]):
+                context.bot.send_message(chat_id=update.effective_chat.id, text=str(market))
 
         
 def order(update,context):
@@ -101,8 +109,9 @@ def order(update,context):
     # 주문 체결 후 메세지  
     # /order BTC/USDT s b 50000 0.1: spot/future buy/sell 가격 수량
     t = update.message.text
+    
     print(t)
-    if t.split()[2] == 's': #현물거래 
+    if t.split()[2] == 's': #현물거래(지정가 거래)
         if t.split()[3] == 'b': # 매수
             order = binance.create_limit_buy_order(
                 symbol= t.split()[1],
@@ -123,7 +132,37 @@ def order(update,context):
             latest_order_id = order['info']['orderId']
             latest_order_symbol = order['symbol']
             context.bot.send_message(chat_id=update.effective_chat.id, text = "매도하였습니다.")
-    #elif t.split()[2] == 'f': # 선물 거래 
+    elif t.split()[2] == 'f':
+        orderbook = binance_f.fetch_order_book(t.split()[1])
+        asks = orderbook['asks']
+        bids = orderbook['bids']
+        print(type(asks)+" "+type(bids))
+        if t.split()[3] == 'b':  
+            # 매수/롱 
+            order = binance_f.create_market_buy_order(
+                symbol = t.split()[1],
+                amount = t.split()[5],
+            )
+            # 포지션 정리
+            order = binance_f.create_market_sell_order(
+                symbol = t.split()[1],
+                amount = t.split()[5]
+            )
+            context.bot.send_message(chat_id=update.effective_chat.id, text = "매수하였습니다.")
+        elif t.split()[3] == 's':
+            # 매도/숏
+            order = binance_f.create_market_sell_order(
+                symbol = t.split()[1],
+                amount = t.split()[5]
+            )
+            # 포지션 정리
+            order = binance_f.create_market_buy_order(
+                symbol = t.split()[1],
+                amount = t.split()[5]
+            )
+            context.bot.send_message(chat_id=update.effective_chat.id, text = "매도하였습니다.")
+        
+
         
    
 def cancel(update,context):
@@ -134,8 +173,18 @@ def cancel(update,context):
     print(ret) 
     context.bot.send_message(chat_id=update.effective_chat.id, text = "주문을 취소하였습니다.")
 
-def price(update,context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text = "데이터 : ")
+
+def price(update,context): # 현재가 조회 
+    t = update.message.text
+    if t.split()[1] == 's':
+        ticker = binance.fetch_ticker(t.split()[2])
+        data = ticker['last']
+        context.bot.send_message(chat_id=update.effective_chat.id, text = t.split()[2]+" 현재가 : "+data)
+    elif t.split()[2] == 'f':
+        ticker = binance_f.fetch_ticker(t.split()[2])
+        data = ticker['last']
+        context.bot.send_message(chat_id=update.effective_chat.id, text = t.split()[2]+" 현재가 : "+data)
+
 
 def warning(update,context):
     # 봇이 문제가 생길 경우 가동 중단
@@ -156,7 +205,7 @@ dispatcher.add_handler(balance_handler)
 market_handler = CommandHandler('market',market)
 dispatcher.add_handler(market_handler) 
 
-order_handler = CommandHandler('order',order)
+order_handler = CommandHandler('order', order)
 dispatcher.add_handler(order_handler) 
 
 cancel_handler = CommandHandler('cancel',cancel)
