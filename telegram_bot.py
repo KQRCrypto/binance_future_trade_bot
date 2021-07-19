@@ -9,7 +9,14 @@ import pprint
 from telegram import Update
 from telegram.ext import Updater,CommandHandler,CallbackContext,MessageHandler
 
-# 추가: 체결시 알림, 미체결 주문 조회, 미체결 주문 취소 
+# 추가: 체결시 알림, 미체결 주문 조회, 미체결 주문 취소, 봇 중단-> 메세지 중단
+# 에러 알림 함수(프로그램 자체에 에러를 추가해서 멈추게하라)
+# 주문이 체결될때마다 체결 로그를 만들어야함 -> 체결로그대로 시각화할 수 있는 툴을 만들어라
+ # -> 데이터시각화는 전략을 점검할 수 있도록, 이 전략이 어디서 매수/매도 되었고, 어떻게 이익을 얻었는지 이런걸 확인할 수 있게
+
+class Error(Exception):
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
 
 with open("../api.txt")as f:
     lines = f.readlines()
@@ -66,6 +73,7 @@ def start(update,context):
     "/trade s: trade spot/future\n" # 현물 - 매수,매도 / 선물 - 롱/숏, 포지션 정리 
     "/cancel: cancel latest order\n"
     "/price s BTC/USDT: spot/future BTC/USDT 현재가 조회\n"
+    "/check: 미체결 주문 확인\n"
     "/stop: stop chat\n")
     
 
@@ -74,8 +82,11 @@ def start(update,context):
 # 매수 매도 테스트 - 매수 주문, 매도 주문(지정가 주문), 포지션 
 
 
-def stop():
-    updater.stop()
+def stop(update,context):
+    # 에러를 만들어서 아예 멈춰지도록 구현 
+    context.bot.send_message(chat_id=update.effective_chat.id, text = "봇 가동을 중단합니다.")
+    raise Error
+    
 
 def balance(update,context):
     # 잔고, 보유 상황, 미체결 내역
@@ -213,11 +224,11 @@ def price(update,context): # 현재가 조회
         context.bot.send_message(chat_id=update.effective_chat.id, text = t.split()[2]+" 현재가 : "+str(data))
 
 
-def warning(update,context):
+def warning(update,context,e):
     # 봇이 문제가 생길 경우 가동 중단
-    context.bot.send_message(chat_id=update.effective_chat.id, text = "봇 가동을 중단합니다.")
+    context.bot.send_message(chat_id=update.effective_chat.id, text = "에러 발생 : "+str(e))
+    context.bot.send_message(chat_id=update.effective_chat.id, text = "\n봇 가동을 중단합니다.")
     updater.stop()
-
 
 # 대기 주문 확인
 """
@@ -259,8 +270,8 @@ dispatcher.add_handler(warning_handler)
 
 try:
     updater.start_polling() # 코드가 종료되지 않고 계속 수행
-except:
-    warning()
+except Exception as e:
+    warning(e)
 
 
 
