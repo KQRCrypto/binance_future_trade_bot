@@ -68,14 +68,15 @@ buy_order['info']
 '''{'orderId': '24814336293', 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'x-xcKtGhcu448c451d5bf89c304552d', 'price': '33370', 'avgPrice': '0.00000', 'origQty': '0.001', 'executedQty': '0', 'cumQty': '0', 'cumQuote': '0', 'timeInForce': 'GTC', 'type': 'STOP', 'reduceOnly': False, 'closePosition': False, 'side': 'BUY', 'positionSide': 'BOTH', 'stopPrice': '33370', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'STOP', 'updateTime': '1625249151429'}'''
 for i in range(len(balance['info']['positions'])):
     print(balance['info']['positions'][i]['symbol'], i)
-
-
+a = [1,2,3,4,5]
+[print("timeout_orders: ",order, 123) for order in a]
 
 # sell_order = binanceObj.create_order('BTC/USDT', 'STOP', 'sell', 0.01, 33780, params={'stopPrice':33780})
 # order_id = sell_order['info']['orderId']
 # binanceObj.fetch_order_status(order_id, 'BTC/USDT')
-
-
+a = [1,2,3,4,5]
+for i in range(len(a)-1):
+    print(i)
 #지표 가져오기
 result_list = []
 def bring_indicator(tf_table):
@@ -115,8 +116,3 @@ def visualization():
 plt.figure(figsize=(10, 10))
 visualization()
 plt.show()
-
-a = 10
-if a>3:
-    b=1
-print(b)
