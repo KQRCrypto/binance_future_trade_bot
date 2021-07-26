@@ -1,6 +1,4 @@
 import ccxt
-import pprint
-import main
 import pandas as pd
 from datetime import datetime
 import time
@@ -33,44 +31,44 @@ def timestamp_to_str(time):  # 타임스탬프 문자열로 변환
     return str(time.year * 100000000 + time.month * 1000000 + time.day * 10000 + time.hour * 100 + time.minute)
 
 
-def day_to_mysql(table, start_time, day):
+def day_to_mysql(table, start_time, day, ticker):
     for d in range(day):
-        btc_ohlcv = binanceObj.fetch_ohlcv("BTC/USDT", timeframe='1d', since=start_time+86400000*100*d, limit=100)#1번 반복이 한시간 +3600000 24시간 +86400000
-        for i in range(len(btc_ohlcv)):
-            stamp = pd.to_datetime(btc_ohlcv[i][0] * 1000000)
+        OHLCV = binanceObj.fetch_ohlcv(ticker, timeframe='1d', since=start_time + 86400000 * 100 * d, limit=100)#1번 반복이 한시간 +3600000 24시간 +86400000
+        for i in range(len(OHLCV)):
+            stamp = pd.to_datetime(OHLCV[i][0] * 1000000)
             times = timestamp_to_str(stamp)
-            ranges = float((btc_ohlcv[i][2] - btc_ohlcv[i][3])).__round__(2)
+            ranges = float((OHLCV[i][2] - OHLCV[i][3])).__round__(2)
             sql = '''INSERT INTO `{7}` (time, open, high, low, close, volume, ranges)
-                VALUES({0}, {1}, {2}, {3}, {4}, {5}, {6})'''.format(times, btc_ohlcv[i][1], btc_ohlcv[i][2], btc_ohlcv[i][3],
-                                                               btc_ohlcv[i][4], btc_ohlcv[i][5], ranges,table)
+                VALUES({0}, {1}, {2}, {3}, {4}, {5}, {6})'''.format(times, OHLCV[i][1], OHLCV[i][2], OHLCV[i][3],
+                                                                    OHLCV[i][4], OHLCV[i][5], ranges, table)
             cursor.execute(sql)
         db.commit()
         print(d)
         time.sleep(0.1)
-def hour_to_mysql(table, start_time, day):
+def hour_to_mysql(table, start_time, day, ticker):
     for d in range(day):
-        btc_ohlcv = binanceObj.fetch_ohlcv("BTC/USDT", timeframe='1h', since=start_time+3600000*500*d, limit=500)#1번 반복이 한시간 +3600000 4시간 + 14400000,24시간 +86400000
-        for i in range(len(btc_ohlcv)):
-            stamp = pd.to_datetime(btc_ohlcv[i][0] * 1000000)
+        OHLCV = binanceObj.fetch_ohlcv(ticker, timeframe='1h', since=start_time + 3600000 * 500 * d, limit=500)#1번 반복이 한시간 +3600000 4시간 + 14400000,24시간 +86400000
+        for i in range(len(OHLCV)):
+            stamp = pd.to_datetime(OHLCV[i][0] * 1000000)
             times = timestamp_to_str(stamp)
-            ranges = float((btc_ohlcv[i][2] - btc_ohlcv[i][3])).__round__(2)
+            ranges = float((OHLCV[i][2] - OHLCV[i][3])).__round__(2)
             sql = '''INSERT INTO `{7}` (time, open, high, low, close, volume, ranges)
-                VALUES({0}, {1}, {2}, {3}, {4}, {5}, {6})'''.format(times, btc_ohlcv[i][1], btc_ohlcv[i][2], btc_ohlcv[i][3],
-                                                               btc_ohlcv[i][4], btc_ohlcv[i][5], ranges,table)
+                VALUES({0}, {1}, {2}, {3}, {4}, {5}, {6})'''.format(times, OHLCV[i][1], OHLCV[i][2], OHLCV[i][3],
+                                                                    OHLCV[i][4], OHLCV[i][5], ranges, table)
             cursor.execute(sql)
         db.commit()
         print(d)
         time.sleep(0.1)
-def minute_to_mysql(table, start_time, day):
+def minute_to_mysql(table, start_time, day, ticker):
     for d in range(day):
-        btc_ohlcv = binanceObj.fetch_ohlcv("BTC/USDT", timeframe='15m', since=start_time+900000*500*d, limit=500)#1번 반복이 한시간 +3600000 24시간 +86400000
-        for i in range(len(btc_ohlcv)):
-            stamp = pd.to_datetime(btc_ohlcv[i][0] * 1000000)
+        OHLCV = binanceObj.fetch_ohlcv(ticker, timeframe='15m', since=start_time + 900000 * 500 * d, limit=500)#1번 반복이 한시간 +3600000 24시간 +86400000
+        for i in range(len(OHLCV)):
+            stamp = pd.to_datetime(OHLCV[i][0] * 1000000)
             times = timestamp_to_str(stamp)
-            ranges = float((btc_ohlcv[i][2] - btc_ohlcv[i][3])).__round__(2)
+            ranges = float((OHLCV[i][2] - OHLCV[i][3])).__round__(2)
             sql = '''INSERT INTO `{7}` (time, open, high, low, close, volume, ranges)
-                VALUES({0}, {1}, {2}, {3}, {4}, {5}, {6})'''.format(times, btc_ohlcv[i][1], btc_ohlcv[i][2], btc_ohlcv[i][3],
-                                                               btc_ohlcv[i][4], btc_ohlcv[i][5], ranges,table)
+                VALUES({0}, {1}, {2}, {3}, {4}, {5}, {6})'''.format(times, OHLCV[i][1], OHLCV[i][2], OHLCV[i][3],
+                                                                    OHLCV[i][4], OHLCV[i][5], ranges, table)
             cursor.execute(sql)
         db.commit()
         print(d)
@@ -99,17 +97,14 @@ t = '2019-09-09 09:00:00'
 start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)#처음 데이터 가져올 때
 # start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)+60000 - 32400000#1분 차이 나면 +60000  9시간차이(UTC기준이므로)-32400000
 # start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)+900000 - 32400000#15분 차이나면 +900000 9시간차이-32400000
-day = 10
-hour = 1000# 1000*500임
-minute = 5000
-day_to_mysql('btc_day', start_time, day)
-hour_to_mysql('btc_hour', start_time, hour)
-minute_to_mysql('btc_15minute', start_time, minute)
-update_indicator('btc_day')
-
-sql = '''SELECT * FROM `btc_15minute`'''
-cursor.execute(sql)
-result = cursor.fetchall()
-df = pd.DataFrame(result)
-df.to_csv("./btc_15minute.csv")
+day = 10 #1000일
+hour = 50# 1040일
+minute = 200 #1040일
+ticker = 'BNB/USDT'
+day_to_mysql('bnb_day', start_time, day, ticker)
+update_indicator('bnb_day')
+hour_to_mysql('bnb_hour', start_time, hour, ticker)
+update_indicator('bnb_hour')
+minute_to_mysql('bnb_15minute', start_time, minute, ticker)
+update_indicator('bnb_15minute')
 

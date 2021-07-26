@@ -30,6 +30,8 @@ class backtest:
     fee_maker = 0.0002
     fee_taker = 0.0004
     fee = 0
+    profit_count = 0
+    loss_count = 0
     def __init__(self, table):
         self.table = table
         sql = '''SELECT *FROM `{0}`;'''.format(table)
@@ -59,6 +61,7 @@ class backtest:
                     # self.vdf.loc[self.id] = [self.id, 1, sell_price]
                     self.vdf = self.vdf.append(pd.DataFrame([[self.id, 1, sell_price]], columns=['id', 'mark','price']))
                     self.direction = 'long&short'
+                    self.profit_count +=1
                     break
                 elif low <= stop_price:#손절
                     sell_price = stop_price
@@ -68,6 +71,7 @@ class backtest:
                     self.amount += pnl
                     self.vdf = self.vdf.append(pd.DataFrame([[self.id, 2, sell_price]], columns=['id', 'mark','price']))
                     self.direction = 'short'
+                    self.loss_count +=1
                     break
             elif mark == 'short':
                 if low <= band25:#익절
@@ -78,6 +82,7 @@ class backtest:
                     self.amount += pnl
                     self.vdf = self.vdf.append(pd.DataFrame([[self.id, 1, sell_price]], columns=['id', 'mark','price']))
                     self.direction = 'long&short'
+                    self.profit_count +=1
                     break
                 elif high >= stop_price:#손절
                     sell_price = stop_price
@@ -87,6 +92,7 @@ class backtest:
                     self.amount += pnl
                     self.vdf = self.vdf.append(pd.DataFrame([[self.id, 2, sell_price]], columns=['id', 'mark','price']))
                     self.direction = 'long'
+                    self.loss_count +=1
                     break
         return
 
@@ -126,9 +132,10 @@ class backtest:
                     self.vdf = self.vdf.append(pd.DataFrame([[self.id, 0, enter_price]], columns=['id', 'mark','price']))
                     self.profit_or_loss('short', enter_price, stop_price)
 
-        print(self.amount, len(self.vdf))
-        self.visualization()
-        return self.table, self.amount/10000*100, len(self.vdf)
+        # self.visualization()
+        ror = (self.amount-10000)/100
+        print(ror, len(self.vdf/2))
+        return self.table, ror, len(self.vdf)/2, self.profit_count, self.loss_count
 
     def visualization(self):
         plt.plot(self.df.index, self.df['close'], color='green', label='close')
@@ -160,13 +167,17 @@ class backtest:
         plt.ylim([min(self.df.low), max(self.df.high)])
         plt.legend(loc='best')
         plt.figure(figsize=(10, 10))
-        plt.show()
+        # plt.show()
 
 if __name__ == '__main__':
-    result_df = pd.DataFrame(columns=['table','수익률', '진입횟수'])
-    target_table = ['btc_day', 'btc_4hour', 'btc_hour', 'btc_15minute']
+    result_df = pd.DataFrame(columns=['table','수익률', '진입횟수','익절횟수','손절횟수'])
+    target_table = ['btc_day', 'btc_4hour', 'btc_hour', 'btc_15minute',
+                    'eth_day', 'eth_4hour', 'eth_hour', 'eth_15minute',
+                    'bnb_day', 'bnb_4hour', 'bnb_hour', 'bnb_15minute']
     # target_table = ['btc_day']
     for table in target_table:
         backtestObj = backtest(table)
         result_df.loc[table] = backtestObj.bollinger_backtest()
+    result_df = result_df.set_index('table')
     result_df
+
