@@ -49,7 +49,7 @@ def day_to_mysql(table, start_time, day):
         time.sleep(0.1)
 def hour_to_mysql(table, start_time, day):
     for d in range(day):
-        btc_ohlcv = binanceObj.fetch_ohlcv("BTC/USDT", timeframe='1h', since=start_time+14400000*500*d, limit=500)#1번 반복이 한시간 +3600000 24시간 +86400000
+        btc_ohlcv = binanceObj.fetch_ohlcv("BTC/USDT", timeframe='1h', since=start_time+3600000*500*d, limit=500)#1번 반복이 한시간 +3600000 4시간 + 14400000,24시간 +86400000
         for i in range(len(btc_ohlcv)):
             stamp = pd.to_datetime(btc_ohlcv[i][0] * 1000000)
             times = timestamp_to_str(stamp)
@@ -63,7 +63,7 @@ def hour_to_mysql(table, start_time, day):
         time.sleep(0.1)
 def minute_to_mysql(table, start_time, day):
     for d in range(day):
-        btc_ohlcv = binanceObj.fetch_ohlcv("BTC/USDT", timeframe='1h', since=start_time+900000*500*d, limit=500)#1번 반복이 한시간 +3600000 24시간 +86400000
+        btc_ohlcv = binanceObj.fetch_ohlcv("BTC/USDT", timeframe='15m', since=start_time+900000*500*d, limit=500)#1번 반복이 한시간 +3600000 24시간 +86400000
         for i in range(len(btc_ohlcv)):
             stamp = pd.to_datetime(btc_ohlcv[i][0] * 1000000)
             times = timestamp_to_str(stamp)
@@ -103,9 +103,9 @@ day = 10
 hour = 1000# 1000*500임
 minute = 5000
 day_to_mysql('btc_day', start_time, day)
-hour_to_mysql('btc_4hour', start_time, hour)
+hour_to_mysql('btc_hour', start_time, hour)
 minute_to_mysql('btc_15minute', start_time, minute)
-update_indicator('btc_15minute')
+update_indicator('btc_day')
 
 sql = '''SELECT * FROM `btc_15minute`'''
 cursor.execute(sql)
