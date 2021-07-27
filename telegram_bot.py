@@ -9,10 +9,6 @@ import pprint
 from telegram import Update
 from telegram.ext import Updater,CommandHandler,CallbackContext,MessageHandler
 
-# 추가: 체결시 알림, 미체결 주문 조회, 미체결 주문 취소, 봇 중단-> 메세지 중단
-# 에러 알림 함수(프로그램 자체에 에러를 추가해서 멈추게하라)
-# 주문이 체결될때마다 체결 로그를 만들어야함 -> 체결로그대로 시각화할 수 있는 툴을 만들어라
- # -> 데이터시각화는 전략을 점검할 수 있도록, 이 전략이 어디서 매수/매도 되었고, 어떻게 이익을 얻었는지 이런걸 확인할 수 있게
 
 class Error(Exception):
     def __init__(self, *args: object) -> None:
@@ -73,13 +69,18 @@ def start(update,context):
     "/trade s: trade spot/future\n" # 현물 - 매수,매도 / 선물 - 롱/숏, 포지션 정리 
     "/cancel: cancel latest order\n"
     "/price s BTC/USDT: spot/future BTC/USDT 현재가 조회\n"
-    "/check: 미체결 주문 확인\n"
+    "/check BTC/USDT: BTC 미체결 주문 확인\n"
     "/stop: stop chat\n")
     
 
 # 계좌정보 불러오기 - 현물 지갑 잔고 조회, 선물 지갑 잔고 조회  
 # 차트 불러오기- 현재가 조회
 # 매수 매도 테스트 - 매수 주문, 매도 주문(지정가 주문), 포지션 
+
+# 추가: 체결시 알림, 미체결 주문 조회, 미체결 주문 취소, 봇 중단-> 메세지 중단
+# 에러 알림 함수(프로그램 자체에 에러를 추가해서 멈추게하라)
+# 주문이 체결될때마다 체결 로그를 만들어야함 -> 체결로그대로 시각화할 수 있는 툴을 만들어라
+ # -> 데이터시각화는 전략을 점검할 수 있도록, 이 전략이 어디서 매수/매도 되었고, 어떻게 이익을 얻었는지 이런걸 확인할 수 있게
 
 
 def stop(update,context):
@@ -154,12 +155,6 @@ def order_s(update,context):
 def order_f(update,context):
     t = update.message.text
     print(t)
-    """
-    orderbook = binance_f.fetch_order_book(t.split()[1])
-    asks = orderbook['asks']
-    bids = orderbook['bids']
-    print(type(asks)+" "+type(bids))
-    """
     try:
         if t.split()[2] == 'l':  
             # 롱 / 숏 포지션 정리 
@@ -203,6 +198,7 @@ def trade(update,context):
         "Take the oppostie postion when you clear existing position")
         order_f(update,context)
  
+ 
 def cancel(update,context):
     ret = binance.cancel_order(
         id = latest_order_id,
@@ -230,12 +226,19 @@ def warning(update,context,e):
     context.bot.send_message(chat_id=update.effective_chat.id, text = "\n봇 가동을 중단합니다.")
     updater.stop()
 
-# 대기 주문 확인
-"""
-open_orders = binance.fetch_open_orders(
-    symbol="BTC/USDT"
-)
-"""
+
+def check(update,context):
+    # 대기 주문 확인
+    t = update.message.text
+    open_orders = binance.fetch_open_orders(
+        symbol = t.split()[1]
+    )
+    cnt = len(open_orders)
+    context.bot.send_message(chat_id=update.effective_chat.id, text = "미체결된 주문은 "+cnt+"회 입니다.")
+    for order in open_orders:
+        context.bot.send_message(chat_id=update.effective_chat.id, text =str(order))
+
+
 
 # handler, dispatcher
 start_handler = CommandHandler('start',start)
