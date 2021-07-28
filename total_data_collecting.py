@@ -45,9 +45,9 @@ def day_to_mysql(table, start_time, day, ticker):
         db.commit()
         print(d)
         time.sleep(0.1)
-def hour_to_mysql(table, start_time, day, ticker):
+def hour_to_mysql(table, start_time, day, ticker, timeframe, hour_weigth):
     for d in range(day):
-        OHLCV = binanceObj.fetch_ohlcv(ticker, timeframe='1h', since=start_time + 3600000 * 500 * d, limit=500)#1번 반복이 한시간 +3600000 4시간 + 14400000,24시간 +86400000
+        OHLCV = binanceObj.fetch_ohlcv(ticker, timeframe=timeframe, since=start_time + 3600000 * 500 * d * hour_weigth, limit=500)#1번 반복이 한시간 +3600000 4시간 + 14400000,24시간 +86400000
         for i in range(len(OHLCV)):
             stamp = pd.to_datetime(OHLCV[i][0] * 1000000)
             times = timestamp_to_str(stamp)
@@ -93,18 +93,23 @@ def update_indicator(table):#OHLCV기반으로 지표 생성 후 DB 테이블 �
 # load_last_time('btc_minute')
 # law = load_last_time('btc_minute')[1]
 # t = law[0:4]+'-'+law[4:6]+'-'+law[6:8]+' '+str(int(law[8:10]))+':'+law[10:12]+':'+law[12:14]+'00'#원형 :'2021-01-01 09:00:00'. 시간은 UTC기준이므로 +9시간
-t = '2019-09-09 09:00:00'
+t = '2019-09-09 09:00:00' #btc 상장된 날
 start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)#처음 데이터 가져올 때
 # start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)+60000 - 32400000#1분 차이 나면 +60000  9시간차이(UTC기준이므로)-32400000
 # start_time = int(time.mktime(datetime.strptime(t, '%Y-%m-%d %H:%M:%S').timetuple())*1000)+900000 - 32400000#15분 차이나면 +900000 9시간차이-32400000
 day = 10 #1000일
-hour = 50# 1040일
+hour = 50 #1000일
 minute = 200 #1040일
-ticker = 'BNB/USDT'
-day_to_mysql('bnb_day', start_time, day, ticker)
-update_indicator('bnb_day')
-hour_to_mysql('bnb_hour', start_time, hour, ticker)
-update_indicator('bnb_hour')
-minute_to_mysql('bnb_15minute', start_time, minute, ticker)
-update_indicator('bnb_15minute')
-
+ticker = 'ADA/USDT'
+ticker_small = 'ada'
+try:
+    day_to_mysql(ticker_small+'_day', start_time, day, ticker)
+    hour_to_mysql(ticker_small+'_4hour', start_time, hour, ticker, '4h', 4)
+    hour_to_mysql(ticker_small+'_hour', start_time, hour, ticker, '1h', 1)
+    minute_to_mysql(ticker_small+'_15minute', start_time, minute, ticker)
+except ccxt.base.errors.ExchangeError:
+    print('데이터 수집 완료')
+update_indicator(ticker_small+'_day')
+update_indicator(ticker_small+'_4hour')
+update_indicator(ticker_small+'_hour')
+update_indicator(ticker_small+'_15minute')
