@@ -116,12 +116,18 @@ class backtest:
                     break
         return
     def bollinger_backtest(self, regulation):
+        def position_setting(enter_price, enter):
+            amounts = self.account / enter_price * leverage
+            self.fee += enter_price * self.fee_maker * amounts
+            self.id = enter
+            self.vdf = self.vdf.append(pd.DataFrame([[self.id, 0, enter_price]], columns=['id', 'mark', 'price']))
+            return amounts
         for enter in range(self.id, len(self.df)):
-            if self.account<=100: #현실적으로 -99퍼 이상이면 청산
-                print(len(self.vdf/2),"번 째 진입에서 청산")
+            if self.account<=100: #현실적으로 초기자본대비 -99퍼 이상이면 청산
+                enter_count = int(len(self.vdf) / 2)
+                print(enter_count,"번 째 진입에서 청산")
                 self.visualization()
                 self.visual_perfomace()
-                enter_count = int(len(self.vdf) / 2)
                 return self.table, -100, -100, enter_count, self.profit_count/enter_count*100, self.loss_count/enter_count*100
             if enter < self.id:continue
             #규제조건에 포함되면 스킵
@@ -131,47 +137,36 @@ class backtest:
             self.fee = 0 #재 진입이므로 fee 초기화
             if self.direction == 'long&short':#양방, 직전 익절
                 if self.df.loc[enter].low <= self.df.loc[enter].lowerBB:#밴드 하단터치 -> 밴드 하단 가격으로 롱 진입
+                    # if
                     enter_price = self.df.loc[enter].lowerBB
                     stop_price = self.df.loc[enter].lower3std
-                    amount = self.account / enter_price * leverage
-                    # if self.succesive_win>1: amount /= (self.succesive_win)
-                    self.fee += enter_price*self.fee_maker * amount
-                    self.id = enter
-                    self.vdf = self.vdf.append(pd.DataFrame([[self.id, 0, enter_price]], columns=['id', 'mark','price']))
+                    amount = position_setting(enter_price, enter)
                     self.profit_or_loss('long', enter_price, stop_price, amount)
                 elif self.df.loc[enter].high >= self.df.loc[enter].upperBB:
                     enter_price = self.df.loc[enter].upperBB
                     stop_price = self.df.loc[enter].upper3std
-                    amount = self.account/enter_price * leverage
                     # if self.succesive_win > 1: amount /= (self.succesive_win)
-                    self.fee += enter_price*self.fee_maker * amount
-                    self.id = enter
-                    self.vdf = self.vdf.append(pd.DataFrame([[self.id, 0, enter_price]], columns=['id', 'mark','price']))
+                    amount = position_setting(enter_price, enter)
                     self.profit_or_loss('short', enter_price, stop_price, amount)
             elif self.direction == 'long':#직전 손절
                 if self.df.loc[enter].low <= self.df.loc[enter].lowerBB:#밴드 하단터치 -> 밴드 하단 가격으로 롱 진입
                     enter_price = self.df.loc[enter].lowerBB
                     stop_price = self.df.loc[enter].lower3std
-                    amount = self.account/enter_price * leverage
-                    self.fee += enter_price*self.fee_maker * amount
-                    self.id = enter
-                    self.vdf = self.vdf.append(pd.DataFrame([[self.id, 0, enter_price]], columns=['id', 'mark','price']))
+                    amount = position_setting(enter_price, enter)
                     self.profit_or_loss('long', enter_price, stop_price, amount)
             elif self.direction == 'short':#직전 손절
                 if self.df.loc[enter].high >= self.df.loc[enter].upperBB:
                     enter_price = self.df.loc[enter].upperBB
                     stop_price = self.df.loc[enter].upper3std
-                    amount = self.account/enter_price * leverage
-                    self.fee += enter_price*self.fee_maker * amount
-                    self.id = enter
-                    self.vdf = self.vdf.append(pd.DataFrame([[self.id, 0, enter_price]], columns=['id', 'mark','price']))
+                    amount = position_setting(enter_price, enter)
                     self.profit_or_loss('short', enter_price, stop_price, amount)
 
-        # self.visualization()
         ror = (self.account - 10000) / 100
         print(ror, len(self.vdf/2))
-        mdd = self.visual_perfomace()
+        # mdd = self.visual_perfomace()
+        mdd=0
         enter_count = int(len(self.vdf) / 2)
+        self.visualization()
         return self.table, ror, mdd, enter_count, self.profit_count/enter_count*100, self.loss_count/enter_count*100
 
     def visualization(self):
@@ -258,7 +253,7 @@ target_table = ['btc_day', 'btc_4hour', 'btc_hour', 'btc_15minute',
                 'xrp_day', 'xrp_4hour', 'xrp_hour', 'xrp_15minute',
                 'ada_day', 'ada_4hour', 'ada_hour', 'ada_15minute']
 # target_table = ['btc_day', 'btc_4hour', 'btc_hour']
-leverage = 3
+leverage = 1
 for i, table in enumerate(target_table):
     backtestObj = backtest(table, (i+1)*3, leverage)
     result_df.loc[table] = backtestObj.bollinger_backtest(0)#regulation: on = 1, off = 0
@@ -266,4 +261,3 @@ plt.show()
 result_df = result_df.set_index('table')
 result_df
 pd.concat([total_df, result_df])
-result_df.to_excel("result.xlsx")
