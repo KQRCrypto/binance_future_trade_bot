@@ -36,13 +36,14 @@ class backtest:
         self.fig_num = fig_num
         self.leverage = leverage
         self.account = 10000  # 시작 잔고 10000$
-        self.account_hist = [(self.account, 0, 'no_direction', 'start')]
+        self.account_hist = [(self.account, 0, 'no_direction')]
         self.direction = 'long&short'
         self.id = 25  # 볼린저밴드가 MA25기준이므로 id=25인 지점부터 시작
-        self.vdf = pd.DataFrame(columns=['id', 'mark', 'price'])
+        self.vdf = pd.DataFrame(columns=['id', 'mark', 'price'])#for visualization
         self.fee = 0  #
         self.profit_count = 0  # 목표가 청산 횟수
         self.loss_count = 0  # 손절 횟수
+        self.missing_count = 0 # 계산 불가, 결측치 갯수
         self.succesive_win = 0 #연승
         sql = '''SELECT *FROM `{0}`;'''.format(table)
         cursor.execute(sql)
@@ -55,6 +56,16 @@ class backtest:
         self.df['upper3std'] = self.df['MA25'] + self.df['stddev'] * 3
         self.df['lower3std'] = self.df['MA25'] - self.df['stddev'] * 3
     def profit_or_loss(self, mark, enter_price, stop_price, amount):
+        def setting(sell_price, vdf_class, next_direction):
+            self.fee += sell_price * self.fee_maker * amount
+            self.id = i
+            if mark =='long':pnl = (sell_price - enter_price) * amount - self.fee
+            elif mark =='short':pnl = (enter_price - sell_price) * amount - self.fee
+            self.account += pnl
+            self.account_hist.append((self.account, self.id, self.direction))
+            self.vdf = self.vdf.append(pd.DataFrame([[self.id, vdf_class, sell_price]], columns=['id', 'mark', 'price']))
+            self.direction = next_direction
+
         for i in range(self.id, len(self.df)):
             high = self.df.iloc[i, 2]
             low = self.df.iloc[i, 3]
@@ -64,53 +75,42 @@ class backtest:
             band75 = (upperBB + MA25) / 2
             band25 = (lowerBB + MA25) / 2
             if mark == 'long':
-                if high >= band75:#목표가 청산
-                    sell_price = band75
-                    self.fee += sell_price*self.fee_maker * amount
+                if high >= band75 and low <=stop_price:#계산 불가 -> 결측치 처리
+                    #id를 기준으로 vdf 행 삭제
+                    self.vdf = self.vdf[self.vdf.id<self.id]
                     self.id = i
-                    pnl = (sell_price - enter_price) * amount - self.fee
-                    self.account += pnl
-                    self.account_hist.append((self.account, self.id, self.direction, 'long_목표가청산'))
-                    # self.vdf.loc[self.id] = [self.id, 1, sell_price]
-                    self.vdf = self.vdf.append(pd.DataFrame([[self.id, 1, sell_price]], columns=['id', 'mark','price']))
                     self.direction = 'long&short'
+                    self.missing_count += 1
+                    break
+                elif high >= band75:#목표가 청산
+                    sell_price = band75
+                    setting(sell_price, 1, 'long&short')
                     self.profit_count += 1
                     self.succesive_win += 1
                     break
                 elif low <= stop_price:#손절
                     sell_price = stop_price
-                    self.fee += sell_price * self.fee_taker * amount
-                    self.id = i
-                    pnl = (sell_price - enter_price) * amount - self.fee
-                    self.account += pnl
-                    self.account_hist.append((self.account, self.id, self.direction, 'long_손절'))
-                    self.vdf = self.vdf.append(pd.DataFrame([[self.id, 2, sell_price]], columns=['id', 'mark','price']))
-                    self.direction = 'short'
+                    setting(sell_price, 2, 'short')
                     self.loss_count += 1
                     self.succesive_win = 0
                     break
             elif mark == 'short':
-                if low <= band25:#목표가 청산
-                    sell_price = band25
-                    self.fee += sell_price * self.fee_maker * amount
+                if low<= band25 and high>= stop_price:#계산불가, 결측치 처리
+                    #id를 기준으로 vdf 행 삭제
+                    self.vdf = self.vdf[self.vdf.id<self.id]
                     self.id = i
-                    pnl = (enter_price - sell_price) * amount - self.fee
-                    self.account += pnl
-                    self.account_hist.append((self.account, self.id, self.direction, 'short_목표가청산'))
-                    self.vdf = self.vdf.append(pd.DataFrame([[self.id, 1, sell_price]], columns=['id', 'mark','price']))
                     self.direction = 'long&short'
+                    self.missing_count += 1
+                    break
+                elif low <= band25:#목표가 청산
+                    sell_price = band25
+                    setting(sell_price, 1, 'long&short')
                     self.profit_count +=1
                     self.succesive_win += 1
                     break
                 elif high >= stop_price:#손절
                     sell_price = stop_price
-                    self.fee += sell_price * self.fee_taker * amount
-                    self.id = i
-                    pnl = (enter_price - sell_price) * amount - self.fee
-                    self.account += pnl
-                    self.account_hist.append((self.account, self.id, self.direction, 'short_손절'))
-                    self.vdf = self.vdf.append(pd.DataFrame([[self.id, 2, sell_price]], columns=['id', 'mark','price']))
-                    self.direction = 'long'
+                    setting(sell_price, 2, 'long')
                     self.loss_count +=1
                     self.succesive_win = 0
                     break
@@ -122,19 +122,32 @@ class backtest:
             self.id = enter
             self.vdf = self.vdf.append(pd.DataFrame([[self.id, 0, enter_price]], columns=['id', 'mark', 'price']))
             return amounts
+        #mdd
+        def get_mdd():
+            mdd_list = []
+            local_high = 10000
+            for account in self.account_hist:
+                if account[0]> local_high: #신고가 갱신
+                    local_high = account[0]
+                mdd = (local_high - account[0])/local_high*-100
+                mdd_list.append(mdd)
+            mdd = min(mdd_list)
+            return mdd, mdd_list
+
         for enter in range(self.id, len(self.df)):
-            if self.account<=100: #현실적으로 초기자본대비 -99퍼 이상이면 청산
+            if self.account<=100: #초기자본대비 -99%이상 손실이면 청산으로 처리
                 enter_count = int(len(self.vdf) / 2)
                 print(enter_count,"번 째 진입에서 청산")
-                self.visualization()
-                self.visual_perfomace()
-                return self.table, -100, -100, enter_count, self.profit_count/enter_count*100, self.loss_count/enter_count*100
+                # self.visualization()
+                # self.visual_perfomace()
+                return self.table, -100, -100, enter_count, self.profit_count/enter_count*100, self.loss_count/enter_count*100, \
+                       self.missing_count, self.leverage, regulation
             if enter < self.id:continue
             #규제조건에 포함되면 스킵
             if regulation == 1 and self.df.loc[enter].bandWidthMean >= self.df.loc[enter].bandWidth*2:
                 self.id = enter
                 continue
-            self.fee = 0 #재 진입이므로 fee 초기화
+            self.fee = 0 #재진입이므로 fee 초기화
             if self.direction == 'long&short':#양방, 직전 익절
                 if self.df.loc[enter].low <= self.df.loc[enter].lowerBB:#밴드 하단터치 -> 밴드 하단 가격으로 롱 진입
                     # if
@@ -145,7 +158,6 @@ class backtest:
                 elif self.df.loc[enter].high >= self.df.loc[enter].upperBB:
                     enter_price = self.df.loc[enter].upperBB
                     stop_price = self.df.loc[enter].upper3std
-                    # if self.succesive_win > 1: amount /= (self.succesive_win)
                     amount = position_setting(enter_price, enter)
                     self.profit_or_loss('short', enter_price, stop_price, amount)
             elif self.direction == 'long':#직전 손절
@@ -162,12 +174,14 @@ class backtest:
                     self.profit_or_loss('short', enter_price, stop_price, amount)
 
         ror = (self.account - 10000) / 100
-        print(ror, len(self.vdf/2))
-        # mdd = self.visual_perfomace()
-        mdd=0
+        mdds = get_mdd() #mdds[0]:mdd, mdds[1]:mdd_list
         enter_count = int(len(self.vdf) / 2)
-        self.visualization()
-        return self.table, ror, mdd, enter_count, self.profit_count/enter_count*100, self.loss_count/enter_count*100
+        # self.visual_perfomace(mdds[1])
+        # self.visualization()
+        # print(self.missing_count)
+        print(ror, enter_count)
+        return self.table, ror, mdds[0], enter_count, self.profit_count/enter_count*100, self.loss_count/enter_count*100,\
+               self.missing_count, self.leverage, regulation
 
     def visualization(self):
         plt.figure(self.fig_num,figsize=(10, 10))
@@ -205,18 +219,17 @@ class backtest:
         plt.savefig('./backtest/charts/'+self.table+'.png')
         plt.close(self.fig_num)
         plt.close()
-    def visual_perfomace(self):
+    def visual_perfomace(self, mdd_list):
         #ROR
         self.fig_num += 1
         plt.figure(self.fig_num,figsize=(10, 10))
         plt.subplot(311)
-        # fig, ax1 = plt.subplots()
         plt.plot(range(len(self.account_hist)),[(i[0]-10000)/10000*100 for i in self.account_hist], label = 'ROR(%)', color='r')
         plt.ylabel("ROR(%)")
         plt.title(table+' '+str(self.leverage)+'X')
         plt.grid(True)
         plt.legend(loc='best')
-
+        #ROR_log_scale
         plt.subplot(312)
         plt.plot(range(len(self.account_hist)),[(i[0]-10000)/10000*100 for i in self.account_hist], label = 'log(ROR(%))', color='r')
         plt.yscale('symlog')
@@ -226,14 +239,6 @@ class backtest:
         plt.legend(loc='best')
         #MDD
         plt.subplot(313)
-        mdd_list = []
-        local_high = 10000
-        for account in self.account_hist:
-            if account[0]> local_high: #신고가 갱신
-                local_high = account[0]
-            mdd = (local_high - account[0])/local_high*-100
-            mdd_list.append(mdd)
-        mdd = min(mdd_list)
         plt.plot(range(len(self.account_hist)),mdd_list, label = 'MDD')
         plt.xlabel("number_of_position_Entries")
         plt.ylabel("MDD(%)")
@@ -242,22 +247,45 @@ class backtest:
         plt.savefig('./backtest/performances/'+table+'_performance_'+str(self.leverage)+'X.png')
         plt.close(self.fig_num-1)
         plt.close('all')
-        return mdd
-
-total_df = pd.DataFrame(columns=['table','수익률(%)', 'MDD(%)', '진입횟수','목표가청산(%)','손절(%)'])
-total_df = total_df.set_index('table')
-result_df = pd.DataFrame(columns=['table','수익률(%)', 'MDD(%)', '진입횟수','목표가청산(%)','손절(%)'])
 target_table = ['btc_day', 'btc_4hour', 'btc_hour', 'btc_15minute',
                 'eth_day', 'eth_4hour', 'eth_hour', 'eth_15minute',
                 'bnb_day', 'bnb_4hour', 'bnb_hour', 'bnb_15minute',
                 'xrp_day', 'xrp_4hour', 'xrp_hour', 'xrp_15minute',
                 'ada_day', 'ada_4hour', 'ada_hour', 'ada_15minute']
 # target_table = ['btc_day', 'btc_4hour', 'btc_hour']
+
+
+result_df = pd.DataFrame(columns=['table','수익률(%)', 'MDD(%)', '진입횟수','목표가청산(%)','손절(%)', '결측치(%)','leverage', 'regulation'])
 leverage = 1
 for i, table in enumerate(target_table):
     backtestObj = backtest(table, (i+1)*3, leverage)
     result_df.loc[table] = backtestObj.bollinger_backtest(0)#regulation: on = 1, off = 0
-plt.show()
 result_df = result_df.set_index('table')
+result_df.index.str.contains('15minute')#15minute 포함한 것
+result_df.loc[result_df.index.str.contains('day')].mean()
+result_df.loc[result_df.index.str.contains('4hour')].mean()
+result_df.loc[result_df.index.str.contains('_hour')].mean()
+result_df.loc[result_df.index.str.contains('15minute')].mean()
+result_df.mean()
+result_df['목표가청산(%)']
+result_df['손절(%)']
+result_df['결측치(%)'].__round__(1)
 result_df
-pd.concat([total_df, result_df])
+
+
+
+
+total_df = pd.DataFrame(columns=['table','수익률(%)', 'MDD(%)', '진입횟수','목표가청산(%)','손절(%)','결측치(%)', 'leverage', 'regulation'])
+total_df = total_df.set_index('table')
+
+total_df = pd.concat([total_df, result_df])
+total_df
+total_df.loc[total_df.index.str.contains('15minute')]
+total_df.loc[total_df.index.str.contains('15minute')]
+
+total_df[total_df.loc[:,'MDD(%)']<-50]
+total_df.loc[total_df.index.str.contains('btc')].mean()
+total_df.loc[total_df.index.str.contains('eth')].mean()
+total_df.loc[total_df.index.str.contains('bnb')].mean()
+total_df.loc[total_df.index.str.contains('xrp')].mean()
+total_df.loc[total_df.index.str.contains('ada')].mean()
