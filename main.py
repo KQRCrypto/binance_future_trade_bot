@@ -5,6 +5,7 @@ import ccxt
 import pymysql
 import schedule
 from Setting import Setting
+from telegram_bot import Telegram
 
 with open("../api.txt")as f:
     lines = f.readlines()
@@ -309,6 +310,7 @@ class Stretegy(Binance):
 
 
 if __name__ == "__main__":
+    Tel = Telegram()
     BObj = Binance()
     BObj.main()
     while True:
