@@ -50,9 +50,9 @@ class backtest:
         self.df = cursor.fetchall()
         self.df = pd.DataFrame(self.df)
         self.df = self.df.set_index('id')
-        self.df['stddev'] = self.df['close'].rolling(window=25, min_periods=1).std()
+        self.df['stddev'] = self.df['close'].rolling(window=25, min_periods=25).std()
         self.df['bandWidth'] = self.df['upperBB'] - self.df['lowerBB']
-        self.df['bandWidthMean'] = self.df['bandWidth'].rolling(window=100, min_periods=1).mean()
+        self.df['bandWidthMean'] = self.df['bandWidth'].rolling(window=500, min_periods=25).mean()
         self.df['upper3std'] = self.df['MA25'] + self.df['stddev'] * 3
         self.df['lower3std'] = self.df['MA25'] - self.df['stddev'] * 3
     def profit_or_loss(self, mark, enter_price, stop_price, amount):
@@ -138,36 +138,48 @@ class backtest:
             if self.account<=100: #초기자본대비 -99%이상 손실이면 청산으로 처리
                 enter_count = int(len(self.vdf) / 2)
                 print(enter_count,"번 째 진입에서 청산")
-                # self.visualization()
-                # self.visual_perfomace()
+                mdds = get_mdd()
+                self.visualization()
+                self.visual_perfomace(mdds[1])
                 return self.table, -100, -100, enter_count, self.profit_count/enter_count*100, self.loss_count/enter_count*100, \
-                       self.missing_count, self.leverage, regulation
+                       self.missing_count/enter_count*100, self.leverage, regulation
             if enter < self.id:continue
-            #규제조건에 포함되면 스킵
+            #스퀴즈 조건이면 스킵
             if regulation == 1 and self.df.loc[enter].bandWidthMean >= self.df.loc[enter].bandWidth*2:
                 self.id = enter
                 continue
             self.fee = 0 #재진입이므로 fee 초기화
             if self.direction == 'long&short':#양방, 직전 익절
                 if self.df.loc[enter].low <= self.df.loc[enter].lowerBB:#밴드 하단터치 -> 밴드 하단 가격으로 롱 진입
-                    # if
+                    if regulation ==1 and self.df.loc[enter-1].low<= self.df.loc[enter-1].lowerBB: #스퀴즈 조건 때문에 추가. 이전 캔들이 진입 시점이었다면 진입X
+                        self.id = enter
+                        continue
                     enter_price = self.df.loc[enter].lowerBB
                     stop_price = self.df.loc[enter].lower3std
                     amount = position_setting(enter_price, enter)
                     self.profit_or_loss('long', enter_price, stop_price, amount)
                 elif self.df.loc[enter].high >= self.df.loc[enter].upperBB:
+                    if regulation ==1 and self.df.loc[enter-1].high >= self.df.loc[enter-1].upperBB:
+                        self.id = enter
+                        continue
                     enter_price = self.df.loc[enter].upperBB
                     stop_price = self.df.loc[enter].upper3std
                     amount = position_setting(enter_price, enter)
                     self.profit_or_loss('short', enter_price, stop_price, amount)
             elif self.direction == 'long':#직전 손절
                 if self.df.loc[enter].low <= self.df.loc[enter].lowerBB:#밴드 하단터치 -> 밴드 하단 가격으로 롱 진입
+                    if regulation ==1 and self.df.loc[enter-1].low <= self.df.loc[enter-1].lowerBB:
+                        self.id = enter
+                        continue
                     enter_price = self.df.loc[enter].lowerBB
                     stop_price = self.df.loc[enter].lower3std
                     amount = position_setting(enter_price, enter)
                     self.profit_or_loss('long', enter_price, stop_price, amount)
             elif self.direction == 'short':#직전 손절
                 if self.df.loc[enter].high >= self.df.loc[enter].upperBB:
+                    if regulation ==1 and self.df.loc[enter-1].high >= self.df.loc[enter-1].upperBB:
+                        self.id = enter
+                        continue
                     enter_price = self.df.loc[enter].upperBB
                     stop_price = self.df.loc[enter].upper3std
                     amount = position_setting(enter_price, enter)
@@ -176,12 +188,11 @@ class backtest:
         ror = (self.account - 10000) / 100
         mdds = get_mdd() #mdds[0]:mdd, mdds[1]:mdd_list
         enter_count = int(len(self.vdf) / 2)
-        # self.visual_perfomace(mdds[1])
-        # self.visualization()
-        # print(self.missing_count)
+        self.visual_perfomace(mdds[1])
+        self.visualization()
         print(ror, enter_count)
         return self.table, ror, mdds[0], enter_count, self.profit_count/enter_count*100, self.loss_count/enter_count*100,\
-               self.missing_count, self.leverage, regulation
+               self.missing_count/enter_count*100, self.leverage, regulation
 
     def visualization(self):
         plt.figure(self.fig_num,figsize=(10, 10))
@@ -255,30 +266,21 @@ target_table = ['btc_day', 'btc_4hour', 'btc_hour', 'btc_15minute',
 # target_table = ['btc_day', 'btc_4hour', 'btc_hour']
 
 
-result_df = pd.DataFrame(columns=['table','수익률(%)', 'MDD(%)', '진입횟수','목표가청산(%)','손절(%)', '결측치(%)','leverage', 'regulation'])
-leverage = 1
-for i, table in enumerate(target_table):
-    backtestObj = backtest(table, (i+1)*3, leverage)
-    result_df.loc[table] = backtestObj.bollinger_backtest(0)#regulation: on = 1, off = 0
-result_df = result_df.set_index('table')
-result_df.index.str.contains('15minute')#15minute 포함한 것
-result_df.loc[result_df.index.str.contains('day')].mean()
-result_df.loc[result_df.index.str.contains('4hour')].mean()
-result_df.loc[result_df.index.str.contains('_hour')].mean()
-result_df.loc[result_df.index.str.contains('15minute')].mean()
-result_df.mean()
-result_df['목표가청산(%)']
-result_df['손절(%)']
-result_df['결측치(%)'].__round__(1)
-result_df
-
-
-
-
 total_df = pd.DataFrame(columns=['table','수익률(%)', 'MDD(%)', '진입횟수','목표가청산(%)','손절(%)','결측치(%)', 'leverage', 'regulation'])
 total_df = total_df.set_index('table')
+leverage_list = [1,2,3,5,7]
+leverage_list = [7]
+for leverage in leverage_list:
+    for i, table in enumerate(target_table):
+        result_df = pd.DataFrame(
+            columns=['table', '수익률(%)', 'MDD(%)', '진입횟수', '목표가청산(%)', '손절(%)', '결측치(%)', 'leverage', 'regulation'])
+        backtestObj = backtest(table, (i+1)*3, leverage)
+        result_df.loc[table] = backtestObj.bollinger_backtest(0)#regulation: on = 1, off = 0
+        result_df = result_df.set_index('table')
+        total_df = pd.concat([total_df, result_df])
+    print('leverage:%d'%leverage)
 
-total_df = pd.concat([total_df, result_df])
+result_df.index.str.contains('15minute')#15minute 포함한 것
 total_df
 total_df.loc[total_df.index.str.contains('15minute')]
 total_df.loc[total_df.index.str.contains('15minute')]
@@ -289,3 +291,5 @@ total_df.loc[total_df.index.str.contains('eth')].mean()
 total_df.loc[total_df.index.str.contains('bnb')].mean()
 total_df.loc[total_df.index.str.contains('xrp')].mean()
 total_df.loc[total_df.index.str.contains('ada')].mean()
+
+# total_df.to_excel("./backtest/backtest(no regulation).xlsx")
