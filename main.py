@@ -167,8 +167,8 @@ class Binance(Setting):
             ticker = order['ticker']
             print(algo, ticker, side, status)
             if status == 'closed' and side == 'stop_market':#시나리오1(드문 상황) 지정가 매수 후 급락 ->stop_market 까지 체결. 손절로 마무리.
-                #손절 주문 체결
-                # context.bot.send_message(chat_id=update.effective_chat.id, text = "손절 주문이 체결되었습니다.")
+                # 손절 주문 체결
+                Telegram.update.context.bot.send_message(chat_id=Telegram.update.effective_chat.id, text = "손절 주문이 체결되었습니다.")
                 for o in self.order_list:
                     if algo == o['algo']: #order_list에서 stop_market제거 후 다음 인덱스인 enter도 제거
                         index = self.order_list.index(o)
@@ -176,7 +176,7 @@ class Binance(Setting):
                         self.order_list.pop(index)
             if status == 'closed' and side == 'enter':#시나리오2(일반적인 상황) 지정가 매수 까지 체결 -> 지정가 매수 제거 후 지정가 매도 주문
                 #진입 주문 체결
-                # context.bot.send_message(chat_id=update.effective_chat.id, text = "진입 주문이 체결되었습니다.")
+                Telegram.context.bot.send_message(chat_id=Telegram.update.effective_chat.id, text = "진입 주문이 체결되었습니다.")
                 index_num = 0
                 for o in self.order_list:
                     stat = self.binanceObj.fetch_order_status(o['info']['orderId'], o['ticker'])
@@ -213,7 +213,7 @@ class Binance(Setting):
         not_working_algo = all_algo_set - stand_by_algo_set
         for i in not_working_algo:
             if i == 'algo2_pre_low':
-                print("algo#2 진입")
+                print("algo#2 비활성화")
                 # for t in self.execute_table:
                 #     stObj.algo2_pre_low(t[1], t[3])
             if i == 'algo3_pre_high':
@@ -235,6 +235,7 @@ class Binance(Setting):
         schedule.every().minutes.at(":00").do(self.check_orders)
         # schedule.every(20).seconds.do(self.check_orders)
         # schedule.every(1).minutes.do(self.are_algos_working)
+
 
 class Stretegy(Binance):
     def __init__(self):
