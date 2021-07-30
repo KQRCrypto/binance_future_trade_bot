@@ -5,6 +5,7 @@ import ccxt
 import pymysql
 import schedule
 from Setting import Setting
+import telegram
 from telegram_bot import Telegram
 
 with open("../api.txt")as f:
@@ -13,6 +14,8 @@ with open("../api.txt")as f:
     secret = lines[1].strip()
     db = lines[2].strip()
     password = lines[3].strip()
+    api_code = lines[4].strip()
+    id = lines[5].strip()
 db = pymysql.connect(
     user='root',
     passwd=password,
@@ -22,6 +25,20 @@ db = pymysql.connect(
 )
 cursor = db.cursor(pymysql.cursors.DictCursor)
 
+binance = ccxt.binance(config={
+    'apiKey': api_key,
+    'secret' :secret,
+    'enableRateLimit': True
+})
+
+binance_f = ccxt.binance(config={ # for future trade 
+    'apiKey': api_key,
+    'secret': secret,
+    'enableRateLimit': True,
+    'options':{
+        'defaultType':'future'
+    }
+})
 
 class Binance(Setting):
     order_list = []#클래스 변수
@@ -157,7 +174,7 @@ class Binance(Setting):
         self.timeout_orders.append(enter_order)
         print('@알고리즘:',algo,'티커:',ticker, '롱/숏:',pos_direction,'진입가격:',enter_price)
 
-    def check_orders(self):
+    def check_orders(self,context,update):
         print("===============================CHECK ORDERS=====================================")
         [print("timeout_orders:",order['algo'], order['ticker'], order['algo_side']) for order in self.timeout_orders]
         for order in self.order_list:
@@ -168,7 +185,7 @@ class Binance(Setting):
             print(algo, ticker, side, status)
             if status == 'closed' and side == 'stop_market':#시나리오1(드문 상황) 지정가 매수 후 급락 ->stop_market 까지 체결. 손절로 마무리.
                 # 손절 주문 체결
-                Telegram.update.context.bot.send_message(chat_id=Telegram.update.effective_chat.id, text = "손절 주문이 체결되었습니다.")
+                context.bot.send_message(chat_id=update.effective_chat.id, text = "손절 주문이 체결되었습니다.")
                 for o in self.order_list:
                     if algo == o['algo']: #order_list에서 stop_market제거 후 다음 인덱스인 enter도 제거
                         index = self.order_list.index(o)
@@ -176,7 +193,7 @@ class Binance(Setting):
                         self.order_list.pop(index)
             if status == 'closed' and side == 'enter':#시나리오2(일반적인 상황) 지정가 매수 까지 체결 -> 지정가 매수 제거 후 지정가 매도 주문
                 #진입 주문 체결
-                Telegram.context.bot.send_message(chat_id=Telegram.update.effective_chat.id, text = "진입 주문이 체결되었습니다.")
+                context.bot.send_message(chat_id=update.effective_chat.id, text = "진입 주문이 체결되었습니다.")
                 index_num = 0
                 for o in self.order_list:
                     stat = self.binanceObj.fetch_order_status(o['info']['orderId'], o['ticker'])
