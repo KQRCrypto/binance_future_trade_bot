@@ -8,7 +8,7 @@ import pprint
 from Error import Error
 
 from telegram import Update
-from telegram.ext import Updater,CommandHandler,CallbackContext,MessageHandler\
+from telegram.ext import Updater,CommandHandler
 
 with open("../api.txt")as f:
     lines = f.readlines()
