@@ -10,6 +10,7 @@ from Error import Error
 from telegram import Update
 from telegram.ext import Updater,CommandHandler
 
+
 with open("../api.txt")as f:
     lines = f.readlines()
     api_key = lines[0].strip()

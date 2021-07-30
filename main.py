@@ -7,6 +7,7 @@ import schedule
 from Setting import Setting
 import telegram
 from telegram_bot import Telegram
+from nlp_main_ver import NLP, NLP2, MyStreamListener
 
 with open("../api.txt")as f:
     lines = f.readlines()
@@ -214,7 +215,7 @@ class Binance(Setting):
             if status == 'closed' and side =='exit':#지정가 매수 후 지정가 매도까지 체결 -> 지정가 주문
                 for o in self.order_list:
                     # 익절 주문 체결
-                    # context.bot.send_message(chat_id=update.effective_chat.id, text = "익절 주문이 체결되었습니다.")
+                    context.bot.send_message(chat_id=update.effective_chat.id, text = "익절 주문이 체결되었습니다.")
                     if algo == o['algo'] and o['algo_side'] == 'stop_market':#stop_market이 미체결인 경우
                         self.binanceObj.cancel_order(o['info']['orderId'], o['ticker'])#주문 취소
                         self.order_list.remove(o)#stop_market 리스트에서 제거
@@ -331,5 +332,9 @@ if __name__ == "__main__":
     Tel = Telegram()
     BObj = Binance()
     BObj.main()
+    NLPg = NLP()
+    MSLg = MyStreamListener()
+    NLP2g = NLP2()
     while True:
         schedule.run_pending()
+        
